@@ -9,11 +9,16 @@ const dialog = document.getElementById('recordDialog');
 const formContainer = document.getElementById('recordFormContainer');
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const initialYear = Number(today.slice(0, 4));
-const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
+const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
 const collectionNames = { transactions: 'transactions', rules: 'recurringRules', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
 let auth, db, unsubs = [], busy = false, toastTimer;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const selectedMonth = () => monthKey(state.year, state.month);
+const displayedCalendarMonth = () => state.calendarMonth || selectedMonth();
+const shiftCalendarMonth = offset => {
+  const [year, month] = displayedCalendarMonth().split('-').map(Number), date = new Date(year, month - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
 const deliveryOwnerUid = () => state.household?.ownerUid || '';
 const hasDelivery = () => Boolean(deliveryOwnerUid() && state.household?.members?.includes(state.user?.uid));
 const currencyInput = value => {
@@ -143,18 +148,18 @@ function recordList() {
   return `<section class="card"><div class="section-heading"><div><h3>이번 달 배달 기록</h3><div class="sectionsub">수정한 날짜의 월별 통계가 자동으로 갱신됩니다.</div></div><span class="tag blue">${items.length}건</span></div>${items.length ? `<div class="overflow-x"><table class="ledger-table record-table"><thead><tr><th>배달일</th><th>구분</th><th>내용</th><th style="text-align:right">반영 금액</th><th>관리</th></tr></thead><tbody>${items.map(r => `<tr><td>${escapeHtml(r.workDate)}</td><td><span class="tag ${r.kind === 'income' ? 'blue' : 'orange'}">${r.kind === 'income' ? '수익' : '운영비'}</span></td><td><b>${escapeHtml(r.platform || r.category)}</b>${r.memo ? `<div class="micro">${escapeHtml(r.memo)}</div>` : ''}</td><td class="amount mono ${r.kind === 'income' ? 'plus' : 'minus'}">${r.kind === 'income' ? '+' : '−'}${money(r.kind === 'income' ? r.grossIncome - r.settlementDeduction : r.amount)}</td><td><button class="small-action" data-edit="${r.kind}:${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-delete="${r.kind}:${escapeHtml(r.id)}">삭제</button></td></tr>`).join('')}</tbody></table></div>` : `<div class="empty-record"><div class="empty-icon">🛵</div><strong>${state.year}년 ${state.month}월 기록이 없습니다.</strong><p>쿠팡이츠 또는 배민커넥트에서 + 기록을 눌러 수익을 등록해 보세요.</p></div>`}</section>`;
 }
 function deliveryCalendar() {
-  const [year, month] = selectedMonth().split('-').map(Number);
+  const calendarMonth = displayedCalendarMonth(), [year, month] = calendarMonth.split('-').map(Number);
   const daily = new Map();
-  for (const row of state.earnings.filter(r => monthOf(r.workDate) === selectedMonth())) daily.set(row.workDate, (daily.get(row.workDate) || 0) + row.grossIncome - row.settlementDeduction);
-  for (const row of state.expenses.filter(r => monthOf(r.workDate) === selectedMonth())) daily.set(row.workDate, (daily.get(row.workDate) || 0) - row.amount);
+  for (const row of state.earnings.filter(r => monthOf(r.workDate) === calendarMonth)) daily.set(row.workDate, (daily.get(row.workDate) || 0) + row.grossIncome - row.settlementDeduction);
+  for (const row of state.expenses.filter(r => monthOf(r.workDate) === calendarMonth)) daily.set(row.workDate, (daily.get(row.workDate) || 0) - row.amount);
   const offset = new Date(year, month - 1, 1).getDay(), last = new Date(year, month, 0).getDate();
   const blanks = Array.from({ length: offset }, () => '<div class="delivery-calendar-empty" aria-hidden="true"></div>').join('');
   const days = Array.from({ length: last }, (_, index) => {
-    const day = index + 1, date = `${selectedMonth()}-${String(day).padStart(2, '0')}`, total = daily.get(date);
+    const day = index + 1, date = `${calendarMonth}-${String(day).padStart(2, '0')}`, total = daily.get(date);
     const amount = total === undefined ? '' : `<span class="calendar-amount">${total >= 0 ? '+' : '−'}${money(Math.abs(total))}</span>`;
     return `<div class="delivery-calendar-day ${date === today ? 'today' : ''}" data-calendar-date="${date}"><span class="calendar-date">${day}</span>${amount}</div>`;
   }).join('');
-  return `<section class="card delivery-calendar"><div class="section-heading"><div><h3>${year}년 ${month}월 배달 달력</h3><div class="sectionsub">기록을 저장하면 해당 날짜에 일별 순반영 금액이 표시됩니다.</div></div><span class="tag blue">파란 띠 = 기록 있음</span></div><div class="delivery-calendar-week" aria-hidden="true">${['일', '월', '화', '수', '목', '금', '토'].map(day => `<span>${day}</span>`).join('')}</div><div class="delivery-calendar-grid">${blanks}${days}</div></section>`;
+  return `<section class="card delivery-calendar"><div class="section-heading"><div><h3 data-calendar-title>${year}년 ${month}월 배달 달력</h3><div class="sectionsub">기록을 저장하면 해당 날짜에 일별 순반영 금액이 표시됩니다.</div></div><div class="calendar-controls"><button class="calendar-nav" data-calendar-move="-1" aria-label="이전 달">‹</button><span class="tag blue">파란 띠 = 기록 있음</span><button class="calendar-nav" data-calendar-move="1" aria-label="다음 달">›</button></div></div><div class="delivery-calendar-week" aria-hidden="true">${['일', '월', '화', '수', '목', '금', '토'].map(day => `<span>${day}</span>`).join('')}</div><div class="delivery-calendar-grid">${blanks}${days}</div></section>`;
 }
 function insight(monthly, result) {
   const perDrop = monthly.deliveries ? money(monthly.payout / monthly.deliveries) : '—';
@@ -213,7 +218,7 @@ async function saveDelivery(form) {
   const ref = id ? doc(db, 'users', deliveryOwnerUid(), path, id) : doc(collection(db, 'users', deliveryOwnerUid(), path));
   if (id) await updateDoc(ref, { ...record, updatedAt: serverTimestamp() });
   else await setDoc(ref, { ...record, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  if (date) { state.year = Number(date.slice(0, 4)); state.month = Number(date.slice(5, 7)); } state.page = 'side'; closeDialog(); render(); notify('기록을 저장했습니다.');
+  if (date) { state.year = Number(date.slice(0, 4)); state.month = Number(date.slice(5, 7)); state.calendarMonth = selectedMonth(); } state.page = 'side'; closeDialog(); render(); notify('기록을 저장했습니다.');
 }
 function openLedger(record = null, recurring = false) {
   const r = record || {}, editing = !!record, isRule = recurring;
@@ -360,7 +365,8 @@ document.addEventListener('click', async event => {
     if (button.hasAttribute('data-login')) { await signInWithPopup(auth, new GoogleAuthProvider()); return; }
     if (button.hasAttribute('data-logout')) { await signOut(auth); return; }
     if (button.hasAttribute('data-settings')) { openSettings(); return; }
-    if (button.dataset.page) { state.page = button.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (button.dataset.calendarMove) { state.calendarMonth = shiftCalendarMonth(Number(button.dataset.calendarMove)); render(); return; }
+    if (button.dataset.page) { if (button.dataset.page === 'side' && state.page !== 'side') state.calendarMonth = null; state.page = button.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (button.dataset.add) { openDelivery(button.dataset.add, button.dataset.platform || state.settings.defaultPlatform || '쿠팡이츠'); return; }
     if (button.hasAttribute('data-ledger-add')) { openLedger(); return; }
     if (button.hasAttribute('data-rule-add')) { openLedger(null, true); return; }
@@ -378,8 +384,8 @@ document.addEventListener('click', async event => {
   } catch (error) { failure(error); }
 });
 document.addEventListener('change', event => {
-  if (event.target.hasAttribute('data-year')) { state.year = Number(event.target.value); render(); }
-  if (event.target.hasAttribute('data-month')) { state.month = Number(event.target.value); render(); }
+  if (event.target.hasAttribute('data-year')) { state.year = Number(event.target.value); state.calendarMonth = null; render(); }
+  if (event.target.hasAttribute('data-month')) { state.month = Number(event.target.value); state.calendarMonth = null; render(); }
   if (event.target.hasAttribute('data-filter')) { state.filter = event.target.value; render(); }
 });
 document.addEventListener('input', event => {

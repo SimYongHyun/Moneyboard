@@ -133,6 +133,11 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByRole('button', { name: '기록 저장' }).click();
     assert.match(await page.locator('.side-metrics').innerText(), /800원/);
     assert.equal(await page.locator('[data-calendar-date="2026-11-02"] .calendar-amount').innerText(), '+800원');
+    assert.match(await page.locator('[data-calendar-title]').innerText(), /2026년 11월/);
+    await page.getByRole('button', { name: '이전 달' }).click();
+    assert.match(await page.locator('[data-calendar-title]').innerText(), /2026년 10월/);
+    await page.getByRole('button', { name: '다음 달' }).click();
+    assert.match(await page.locator('[data-calendar-title]').innerText(), /2026년 11월/);
     await page.screenshot({ path: 'tools/ui-side-1440.png', fullPage: true });
     await page.screenshot({ path: 'tools/ui-side-viewport.png' });
     await page.locator('.record-table [data-edit^="income:"]').click();
