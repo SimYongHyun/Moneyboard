@@ -108,6 +108,23 @@ body{background:#f6f8fc}
  .dialog{padding:20px 16px}
 }
 @media(max-width:410px){.form-row.three{gap:6px}.dialog input{padding:9px 7px}}
+/* 읽기 쉬운 글자와 한 화면 밀도를 함께 맞춘 공통 최적화 */
+#app{font-size:12px}
+#app :is(small,.micro,.small,.sectionsub,.tag,.pill-btn,.badgeNum,.paytoggle,.note,.hintbox,.clean-link,.stat-caption,.ledger-table,.ledger-table th,.ledger-table td,.ledger-panel-sub,.ledger-mini,.side-footer,.calendar-date,.calendar-amount,.delivery-calendar-week span,.small-action,.investment-details summary,.investment-list,.dual-label,.plot-labels span,.plot-item .point,.month-tile .tile-number,.month-tile .tile-value,.line-visual text,.empty-record p,.preview-notice,.preview-notice .notice-right,.preview-notice strong,.today-btn,.preview-total,.dialog .form-field>label,.dialog .form-field>.label-heading,.date-fields label,.record-actions button,.record-actions button b,.avatar,.top-avatar,.costbar,.bottom-nav button,.mock-app select,.app-title p,.chart-legend,.ride-labels,.sample-disclaimer){font-size:12px}
+.app-main{max-width:1320px;padding:18px 22px 24px;gap:12px}
+.card{padding:14px}.section-heading{margin-bottom:10px}.softline{margin:10px 0}
+.family-card{padding:18px 20px;min-height:0}.family-row{gap:13px}.household-quick,.family-split,.business-mini,.ledger-columns,.side-hero,.side-analytics,.side-bottom{gap:10px}
+.ledger-overview{padding:18px 20px}.ledger-panel-head{padding:11px 13px}.ledger-table th,.ledger-table td{padding:8px 9px}
+.initial-invest,.side-roadmap{padding:17px}.initial-invest .meta-items{margin-top:11px}.side-metrics{gap:9px}.side-metrics>div{padding:11px}.side-metrics b{margin:5px 0}
+.plot{height:154px}.plot.compact{height:124px}.dual-chart{height:154px}.dual-bars{height:120px}.line-visual{height:154px;min-height:154px}.month-tiles{margin-top:10px}.month-tile{padding:8px}
+.delivery-calendar{padding:14px}.delivery-calendar-week{margin-top:11px}.delivery-calendar-week span{padding:7px 3px}.delivery-calendar-day,.delivery-calendar-empty{min-height:64px;padding:6px}.calendar-amount{margin-top:6px;padding:4px}
+.platform-row{padding:9px 0}.investment-details{margin-top:11px;padding-top:9px}.investment-list{gap:7px;padding-top:8px}.empty-record{padding:18px 10px}
+@container (max-width:760px){
+ .app-main,.vC .app-main,.vE .app-main{padding:16px 13px 72px!important;gap:10px!important}
+ .card{padding:13px}.family-card{padding:15px 13px}.ledger-overview{padding:15px 13px}.ledger-table,.ledger-table th,.ledger-table td{font-size:12px}.ledger-table th,.ledger-table td{padding:7px 6px}
+ .plot{height:122px}.plot.compact{height:112px}.line-visual{height:126px;min-height:126px}.dual-chart{height:126px}.dual-bars{height:94px}.month-tile{padding:7px 6px}
+ .delivery-calendar{padding:12px}.delivery-calendar-day,.delivery-calendar-empty{min-height:54px;padding:5px 3px}.calendar-amount{font-size:12px;padding:3px 2px}
+}
 .mobile-logout{display:none}
 @container (max-width:760px){.mobile-logout{display:inline-flex;justify-self:start}}
 @media print{.preview-notice,.bottom-nav,.record-actions,.modal-buttons,.side-nav,.pill-btn{display:none!important}.sidebar{display:none!important}.side-shell{display:block!important}}
