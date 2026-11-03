@@ -102,6 +102,8 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 수입' }).first().innerText(), /수입/);
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 식비' }).first().innerText(), /지출/);
+    assert.ok((await page.locator('[data-ledger-add]').boundingBox()).height >= 43);
+    assert.match(await page.locator('[data-ledger-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     await page.getByRole('button', { name: '+ 지출 등록' }).click();
     await page.locator('#ledgerForm [name=title]').fill('새 지출');
     await page.locator('#ledgerForm [name=amount]').fill('100');
