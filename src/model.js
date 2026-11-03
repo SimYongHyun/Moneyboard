@@ -8,7 +8,10 @@ export function validDate(value) {
   return actual.getFullYear() === y && actual.getMonth() + 1 === m && actual.getDate() === d;
 }
 export function integer(value, label = '금액') {
-  const number = Number(value);
+  const raw = String(value ?? '').trim();
+  const display = raw.endsWith('원') ? raw.slice(0, -1).trim() : raw;
+  if (!/^(?:0|[1-9]\d*|[1-9]\d{0,2}(?:,\d{3})+)$/.test(display)) throw Error(`${label}은 0 이상 1조 원 이하의 정수여야 합니다.`);
+  const number = Number(display.replaceAll(',', ''));
   if (!Number.isSafeInteger(number) || number < 0 || number > 1000000000000) throw Error(`${label}은 0 이상 1조 원 이하의 정수여야 합니다.`);
   return number;
 }

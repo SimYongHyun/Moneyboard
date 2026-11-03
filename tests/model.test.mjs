@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validDate, validateDelivery, deliveryTotals, recovery, householdTotals, recurringOccurrences } from '../src/model.js';
+import { validDate, integer, validateDelivery, deliveryTotals, recovery, householdTotals, recurringOccurrences } from '../src/model.js';
 
 const earning = (workDate, platform, grossIncome, settlementDeduction = 0) => ({ kind: 'income', workDate, platform, grossIncome, settlementDeduction, deliveryCount: 1, workHours: 1, distanceKm: 5, memo: '' });
 const cost = (workDate, amount) => ({ kind: 'expense', workDate, amount, category: '주유비', memo: '' });
@@ -11,6 +11,12 @@ test('배달 날짜와 원화 금액 검증', () => {
   assert.throws(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', -1)));
   assert.throws(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', 1.5)));
   assert.throws(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', 10, 11)));
+});
+
+test('쉼표와 원 단위가 포함된 금액도 정수로 저장된다', () => {
+  assert.equal(integer('1,000원'), 1000);
+  assert.equal(integer('250,000'), 250000);
+  assert.throws(() => integer('1,00원'));
 });
 test('월별 플랫폼 합계, 날짜 수정, 삭제가 누적 분석에 반영된다', () => {
   const first = earning('2026-11-02', '쿠팡이츠', 1000, 100);

@@ -16,6 +16,14 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&'
 const selectedMonth = () => monthKey(state.year, state.month);
 const deliveryOwnerUid = () => state.household?.ownerUid || '';
 const hasDelivery = () => Boolean(deliveryOwnerUid() && state.household?.members?.includes(state.user?.uid));
+const currencyInput = value => {
+  const digits = String(value ?? '').replaceAll(',', '').replaceAll('원', '').replace(/\D/g, '');
+  return digits ? `${Number(digits).toLocaleString('ko-KR')}원` : '';
+};
+const currencyNumber = value => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? Number(digits) : 0;
+};
 const allTransactions = key => [...state.transactions.filter(t => monthOf(t.date) === key), ...recurringOccurrences(state.rules, state.transactions, key)];
 const house = key => householdTotals(allTransactions(key), key);
 const money = value => won(value);
@@ -169,8 +177,9 @@ function openDialog(title, subtitle, html) {
 }
 function closeDialog() { dialog.classList.remove('open'); dialog.setAttribute('aria-hidden', 'true'); document.body.classList.remove('modal-open'); formContainer.innerHTML = ''; }
 function field(label, name, value = '', options = {}) {
-  const { type = 'text', required = false, min, step, maxLength = 150 } = options;
-  return `<div class="form-field"><label for="field-${name}">${label}${required ? ' <span class="required">*</span>' : ''}</label><input id="field-${name}" name="${name}" type="${type}" value="${escapeHtml(value)}" ${required ? 'required' : ''} ${min !== undefined ? `min="${min}"` : ''} ${step !== undefined ? `step="${step}"` : ''} maxlength="${maxLength}"></div>`;
+  const { type = 'text', required = false, min, step, maxLength = 150, currency = false } = options;
+  const displayValue = currency ? currencyInput(value) : value;
+  return `<div class="form-field"><label for="field-${name}">${label}${required ? ' <span class="required">*</span>' : ''}</label><input id="field-${name}" name="${name}" type="${currency ? 'text' : type}" value="${escapeHtml(displayValue)}" ${currency ? 'data-currency inputmode="numeric" autocomplete="off"' : ''} ${required ? 'required' : ''} ${min !== undefined && !currency ? `min="${min}"` : ''} ${step !== undefined && !currency ? `step="${step}"` : ''} maxlength="${maxLength}"></div>`;
 }
 function choice(label, name, choices, selected) { return `<div class="form-field"><label for="field-${name}">${label}</label><select id="field-${name}" name="${name}">${choices.map(([value, text]) => `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></div>`; }
 function buttons(editing) { return `<div class="modal-buttons"><button type="button" class="pill-btn" data-close>취소</button><button class="pill-btn primary" type="submit">${editing ? '수정 저장' : '기록 저장'}</button></div>`; }
@@ -178,7 +187,7 @@ function openDelivery(kind = 'income', platform = '쿠팡이츠', record = null)
   const r = record || {}, editing = !!record, date = r.workDate ?? (kind === 'investment' ? '' : selectedMonth() === monthOf(today) ? today : selectedMonth() + '-01');
   const income = kind === 'income', investment = kind === 'investment';
   openDialog(editing ? '기록 수정' : income ? '배달 수익 등록' : investment ? '투자비 등록' : '운영비 등록', '발생 날짜를 지정하면 해당 월 분석에 반영됩니다.',
-    `<form id="deliveryForm" data-kind="${kind}" data-id="${escapeHtml(r.id || '')}"><div class="modal-hint"><span class="tag blue">${income ? '배달 수행일' : '지출 발생일'} 직접 지정</span><button type="button" class="today-btn" data-today>오늘 날짜</button></div>${income ? choice('배달 플랫폼', 'platform', [['쿠팡이츠', '쿠팡이츠'], ['배민커넥트', '배민커넥트']], r.platform || platform) : choice(investment ? '투자비 유형' : '운영비 유형', 'category', (investment ? ['차량', '장비·비품', '추가 투자'] : ['주유비', '보험료', '엔진오일·정비', '타이어·소모품', '기타 운영비']).map(v => [v, v]), r.category || (investment ? '장비·비품' : '주유비'))}${field(investment ? '구매일 (모르면 공란)' : '발생일', 'workDate', date, { type: 'date', required: !investment })}<div class="form-row">${field(income ? '총 배달 수입 (원)' : '금액 (원)', income ? 'grossIncome' : 'amount', income ? r.grossIncome ?? '' : r.amount ?? '', { type: 'number', min: 0, step: 1, required: true })}${income ? field('정산 공제액 (원)', 'settlementDeduction', r.settlementDeduction ?? 0, { type: 'number', min: 0, step: 1 }) : ''}</div>${income ? `<div class="form-row three">${field('배달 건수', 'deliveryCount', r.deliveryCount ?? 0, { type: 'number', min: 0, step: 1 })}${field('근무시간 (h)', 'workHours', r.workHours ?? 0, { type: 'number', min: 0, step: 0.1 })}${field('주행거리 (km)', 'distanceKm', r.distanceKm ?? 0, { type: 'number', min: 0, step: 0.1 })}</div>` : ''}${field('메모', 'memo', r.memo || '', { maxLength: 150 })}<div class="preview-total"><span>${income ? '예상 실정산액' : investment ? '투자비' : '운영비'}</span><strong id="calcPreview">${money(income ? (r.grossIncome || 0) - (r.settlementDeduction || 0) : r.amount || 0)}</strong></div>${buttons(editing)}</form>`);
+    `<form id="deliveryForm" data-kind="${kind}" data-id="${escapeHtml(r.id || '')}"><div class="modal-hint"><span class="tag blue">${income ? '배달 수행일' : '지출 발생일'} 직접 지정</span><button type="button" class="today-btn" data-today>오늘 날짜</button></div>${income ? choice('배달 플랫폼', 'platform', [['쿠팡이츠', '쿠팡이츠'], ['배민커넥트', '배민커넥트']], r.platform || platform) : choice(investment ? '투자비 유형' : '운영비 유형', 'category', (investment ? ['차량', '장비·비품', '추가 투자'] : ['주유비', '보험료', '엔진오일·정비', '타이어·소모품', '기타 운영비']).map(v => [v, v]), r.category || (investment ? '장비·비품' : '주유비'))}${field(investment ? '구매일 (모르면 공란)' : '발생일', 'workDate', date, { type: 'date', required: !investment })}<div class="form-row">${field(income ? '총 배달 수입 (원)' : '금액 (원)', income ? 'grossIncome' : 'amount', income ? r.grossIncome ?? '' : r.amount ?? '', { currency: true, required: true })}${income ? field('정산 공제액 (원)', 'settlementDeduction', r.settlementDeduction ?? 0, { currency: true }) : ''}</div>${income ? `<div class="form-row three">${field('배달 건수', 'deliveryCount', r.deliveryCount ?? 0, { type: 'number', min: 0, step: 1 })}${field('근무시간 (h)', 'workHours', r.workHours ?? 0, { type: 'number', min: 0, step: 0.1 })}${field('주행거리 (km)', 'distanceKm', r.distanceKm ?? 0, { type: 'number', min: 0, step: 0.1 })}</div>` : ''}${field('메모', 'memo', r.memo || '', { maxLength: 150 })}<div class="preview-total"><span>${income ? '예상 실정산액' : investment ? '투자비' : '운영비'}</span><strong id="calcPreview">${money(income ? (r.grossIncome || 0) - (r.settlementDeduction || 0) : r.amount || 0)}</strong></div>${buttons(editing)}</form>`);
 }
 async function saveDelivery(form) {
   const kind = form.dataset.kind, id = form.dataset.id, date = form.elements.workDate.value;
@@ -195,7 +204,7 @@ function openLedger(record = null, recurring = false) {
   const r = record || {}, editing = !!record, isRule = recurring;
   const date = r.date || selectedMonth() + '-01';
   openDialog(editing ? '가계부 기록 수정' : isRule ? '반복 거래 등록' : '가계부 기록 등록', '내부 이체·저축·대출 원금은 지출 합계에서 제외됩니다.',
-    `<form id="ledgerForm" data-id="${escapeHtml(r.id || '')}" data-rule="${isRule ? 'true' : 'false'}">${choice('담당자', 'person', [['y', '용현'], ['s', '선영']], r.person || 'y')}${choice('분류', 'type', Object.entries(typeLabels), r.type || 'expense')}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('금액 (원)', 'amount', r.amount ?? '', { type: 'number', min: 0, step: 1, required: true })}${isRule ? field('반복 시작월', 'startMonth', r.startMonth || selectedMonth(), { type: 'month', required: true }) : field('거래·결제일', 'date', date, { type: 'date', required: true })}</div>${isRule ? `<div class="form-row three">${field('반복 종료월 (선택)', 'endMonth', r.endMonth || '', { type: 'month' })}${field('매월 결제일', 'day', r.day || 1, { type: 'number', min: 1, step: 1 })}${field('할부 총 회차 (0=계속)', 'installments', r.installments || 0, { type: 'number', min: 0, step: 1 })}</div>` : ''}<div class="form-row">${field('카테고리', 'category', r.category || '')}${field('결제 수단', 'paymentMethod', r.paymentMethod || '')}</div>${field('계좌·결제처', 'account', r.account || '')}${field('메모', 'memo', r.memo || '')}${!isRule ? `<div class="form-row">${choice('납부 상태', 'paid', [['false', '미완료'], ['true', '완료']], String(r.paid || false))}${field('실제 납부일 (선택)', 'paidDate', r.paidDate || '', { type: 'date' })}</div>` : ''}${buttons(editing)}</form>`);
+    `<form id="ledgerForm" data-id="${escapeHtml(r.id || '')}" data-rule="${isRule ? 'true' : 'false'}">${choice('담당자', 'person', [['y', '용현'], ['s', '선영']], r.person || 'y')}${choice('분류', 'type', Object.entries(typeLabels), r.type || 'expense')}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}${isRule ? field('반복 시작월', 'startMonth', r.startMonth || selectedMonth(), { type: 'month', required: true }) : field('거래·결제일', 'date', date, { type: 'date', required: true })}</div>${isRule ? `<div class="form-row three">${field('반복 종료월 (선택)', 'endMonth', r.endMonth || '', { type: 'month' })}${field('매월 결제일', 'day', r.day || 1, { type: 'number', min: 1, step: 1 })}${field('할부 총 회차 (0=계속)', 'installments', r.installments || 0, { type: 'number', min: 0, step: 1 })}</div>` : ''}<div class="form-row">${field('카테고리', 'category', r.category || '')}${field('결제 수단', 'paymentMethod', r.paymentMethod || '')}</div>${field('계좌·결제처', 'account', r.account || '')}${field('메모', 'memo', r.memo || '')}${!isRule ? `<div class="form-row">${choice('납부 상태', 'paid', [['false', '미완료'], ['true', '완료']], String(r.paid || false))}${field('실제 납부일 (선택)', 'paidDate', r.paidDate || '', { type: 'date' })}</div>` : ''}${buttons(editing)}</form>`);
 }
 function openSettings() {
   openDialog('개인 설정', '이 설정은 로그인한 본인에게만 보입니다.', `<form id="settingsForm">${field('표시 이름', 'displayName', state.settings.displayName || state.user.displayName || '', { maxLength: 40 })}${choice('기본 배달 플랫폼', 'defaultPlatform', [['쿠팡이츠', '쿠팡이츠'], ['배민커넥트', '배민커넥트']], state.settings.defaultPlatform || '쿠팡이츠')}${buttons(!!state.settings.ownerUid)}</form>`);
@@ -359,8 +368,12 @@ document.addEventListener('change', event => {
   if (event.target.hasAttribute('data-filter')) { state.filter = event.target.value; render(); }
 });
 document.addEventListener('input', event => {
+  if (event.target.matches('input[data-currency]')) {
+    event.target.value = currencyInput(event.target.value);
+    event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+  }
   const form = event.target.closest('#deliveryForm'); if (!form || !['grossIncome', 'settlementDeduction', 'amount'].includes(event.target.name)) return;
-  const amount = Number(form.elements.grossIncome?.value || form.elements.amount?.value || 0), deduction = Number(form.elements.settlementDeduction?.value || 0);
+  const amount = currencyNumber(form.elements.grossIncome?.value || form.elements.amount?.value), deduction = currencyNumber(form.elements.settlementDeduction?.value);
   form.querySelector('#calcPreview').textContent = money(amount - deduction);
 });
 document.addEventListener('submit', async event => {

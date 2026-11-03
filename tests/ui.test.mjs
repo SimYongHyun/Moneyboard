@@ -103,6 +103,7 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByRole('button', { name: '+ 지출 등록' }).click();
     await page.locator('#ledgerForm [name=title]').fill('새 지출');
     await page.locator('#ledgerForm [name=amount]').fill('100');
+    assert.equal(await page.locator('#ledgerForm [name=amount]').inputValue(), '100원');
     await page.locator('#ledgerForm [name=date]').fill('2026-11-02');
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('새 지출').waitFor();
@@ -113,6 +114,8 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.locator('#deliveryForm [name=workDate]').fill('2026-11-02');
     await page.locator('#deliveryForm [name=grossIncome]').fill('1000');
     await page.locator('#deliveryForm [name=settlementDeduction]').fill('100');
+    assert.equal(await page.locator('#deliveryForm [name=grossIncome]').inputValue(), '1,000원');
+    assert.equal(await page.locator('#deliveryForm [name=settlementDeduction]').inputValue(), '100원');
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('이번 달 실정산액').waitFor();
     assert.match(await page.locator('.side-metrics').innerText(), /900원/);
