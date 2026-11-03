@@ -36,10 +36,17 @@ const byDate = (a, b) => (b.workDate || b.date).localeCompare(a.workDate || a.da
 function notify(message) { const el = document.getElementById('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 4000); }
 function failure(error) { console.error(error); notify(error?.message || '작업 중 오류가 발생했습니다.'); }
 function accessMessage() { return state.status === 'denied' ? '승인되지 않은 계정입니다. 관리자에게 UID 등록을 요청하세요.' : state.status === 'setup' ? 'Firebase 웹 설정을 입력해 주세요.' : state.error || '데이터를 불러오는 중입니다.'; }
+function applyBranding() {
+  root.querySelectorAll('.sidebar .logo').forEach(element => { element.textContent = '사이드 메뉴바'; });
+  root.querySelectorAll('.section-heading h3').forEach(element => {
+    if (element.textContent === '배달 부업 · 투자금과 기록') element.textContent = '부업 · 투자금과 기록';
+  });
+}
 function authScreen() {
   const loading = state.status === 'loading';
   document.querySelector('.notice-right').textContent = state.status === 'setup' ? 'Firebase 설정 필요' : state.status === 'signedOut' ? '로그인 필요' : state.status === 'denied' ? '접근 불가' : loading ? '연결 상태 확인 중' : '연결 오류';
   root.innerHTML = `<div class="mock-app vA"><div class="app-shell side-shell"><aside class="sidebar"><div class="logo">◈ 머니보드</div><div class="side-footer"><b>우리집 공동 가계부</b>승인된 두 계정만 사용</div></aside><main class="app-main"><section class="card" style="max-width:510px;margin:12vh auto;width:100%;padding:29px"><span class="tag blue">우리집 머니보드</span><h2 style="margin:16px 0 9px">${loading ? '연결 중입니다' : state.status === 'signedOut' ? 'Google 계정으로 로그인' : '접근 상태 확인'}</h2><p class="sectionsub" style="font-size:12px">${escapeHtml(loading ? '인증 및 권한을 확인하고 있습니다.' : state.status === 'signedOut' ? '승인된 가족 계정으로 로그인하면 공동 가계부가 열립니다.' : accessMessage())}</p>${state.user ? `<p class="sectionsub">계정: ${escapeHtml(state.user.email || '')}<br>UID: ${escapeHtml(state.user.uid)}</p>` : ''}<div class="inline" style="margin-top:20px">${state.status === 'signedOut' ? '<button class="pill-btn primary" data-login>Google 로그인</button>' : ''}${state.user ? '<button class="pill-btn" data-logout>로그아웃</button>' : ''}</div></section></main></div></div>`;
+  applyBranding();
 }
 function clearSubscriptions() { for (const stop of unsubs) stop(); unsubs = []; state.loaded = {}; state.transactions = []; state.rules = []; state.earnings = []; state.expenses = []; state.investments = []; state.settings = {}; }
 function subscribe(key, path) {
@@ -193,6 +200,7 @@ function render() {
   if (state.status !== 'ready') { authScreen(); return; }
   document.querySelector('.notice-right').textContent = state.offline ? '오프라인 캐시' : 'Firebase 실시간 동기화';
   root.innerHTML = { home, ledger, side }[state.page]();
+  applyBranding();
   root.querySelectorAll('.business-mini .micro small, .side-metrics > div:first-child .micro:last-child').forEach(element => element.remove());
   const filter = root.querySelector('[data-filter]');
   if (filter) filter.value = state.filter;
