@@ -104,6 +104,7 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 식비' }).first().innerText(), /지출/);
     assert.ok((await page.locator('[data-ledger-add]').boundingBox()).height >= 43);
     assert.match(await page.locator('[data-ledger-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
+    assert.match(await page.locator('[data-rule-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     await page.getByRole('button', { name: '+ 지출 등록' }).click();
     await page.locator('#ledgerForm [name=title]').fill('새 지출');
     await page.locator('#ledgerForm [name=amount]').fill('100');
@@ -114,6 +115,8 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.screenshot({ path: 'tools/ui-ledger-1440.png', fullPage: true });
     await page.screenshot({ path: 'tools/ui-ledger-viewport.png' });
     await page.getByRole('button', { name: '배달 부업' }).first().click();
+    assert.match(await page.locator('[data-add="income"]').first().evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
+    assert.match(await page.locator('[data-add="investment"]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     await page.getByRole('button', { name: /쿠팡이츠 배달 수익/ }).click();
     await page.locator('#deliveryForm [name=workDate]').fill('2026-11-02');
     await page.locator('#deliveryForm [name=grossIncome]').fill('1000');
