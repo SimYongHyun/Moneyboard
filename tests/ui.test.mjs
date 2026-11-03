@@ -103,6 +103,11 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 수입' }).first().innerText(), /수입/);
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 식비' }).first().innerText(), /지출/);
+    const yRows = page.locator('.ledger-panel').first().locator('tbody tr[data-drag-id]');
+    assert.equal(await yRows.count(), 2);
+    await yRows.filter({ hasText: '테스트 수입' }).dragTo(yRows.filter({ hasText: '테스트 식비' }));
+    await page.getByText('장부 순서를 변경했습니다.').waitFor();
+    assert.match(await page.locator('.ledger-panel').first().locator('tbody tr').first().innerText(), /테스트 수입/);
     assert.ok((await page.locator('[data-ledger-add]').boundingBox()).height >= 43);
     assert.match(await page.locator('[data-ledger-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     assert.match(await page.locator('[data-rule-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);

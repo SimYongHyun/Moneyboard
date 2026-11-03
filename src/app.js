@@ -53,6 +53,10 @@ function applyBranding() {
     tag.textContent = rule.person === 'y' ? '용현' : '선영';
     text.prepend(tag, ' ');
   });
+  root.querySelectorAll('.ledger-columns .ledger-table tbody tr').forEach(row => {
+    const edit = row.querySelector('[data-ledger-edit]'), id = edit?.dataset.ledgerEdit;
+    if (id && !id.startsWith('virtual:')) { row.draggable = true; row.dataset.dragId = id; row.title = '끌어 놓아 순서를 변경하세요'; }
+  });
 }
 function authScreen() {
   const loading = state.status === 'loading';
@@ -142,9 +146,14 @@ function miniBusiness() {
 function home() { return shell(`${heading('이번 달 우리집 머니보드', '우리집 가계 현황을 먼저 확인하고, 연도별 지출과 배달 투자금 현황을 살펴보세요.')}${family()}${peopleCards()}${annualGraph()}<div class="section-heading" style="margin-bottom:0"><h3>배달 부업 · 투자금과 기록</h3><button class="pill-btn" data-page="side">부업 상세 보기 ↗</button></div>${miniBusiness()}`); }
 const typeLabels = { income: '수입', expense: '지출', savings: '저축', transfer: '내부 이체', loanPrincipal: '대출 원금', loanInterest: '대출 이자' };
 const typeTagClass = type => type === 'income' ? 'blue' : type === 'expense' || type === 'loanInterest' ? 'red' : 'orange';
+const ledgerOrder = (a, b) => {
+  const aOrder = Number.isInteger(a.sortOrder) ? a.sortOrder : null, bOrder = Number.isInteger(b.sortOrder) ? b.sortOrder : null;
+  if (aOrder !== null || bOrder !== null) return (aOrder ?? Number.MAX_SAFE_INTEGER) - (bOrder ?? Number.MAX_SAFE_INTEGER);
+  return b.date.localeCompare(a.date);
+};
 function personPanel(person, key) {
   const name = key === 'y' ? '용현' : '선영';
-  const entries = person.items.filter(r => state.filter === 'all' || r.type === state.filter).sort((a, b) => b.date.localeCompare(a.date));
+  const entries = person.items.filter(r => state.filter === 'all' || r.type === state.filter).sort(ledgerOrder);
   return `<section class="ledger-panel ${key === 's' ? 'pink' : ''}"><div class="ledger-panel-head"><div><strong>${name} 거래 장부</strong><div class="ledger-panel-sub">예상 잔여 ${person.items.length ? money(person.balance) : '—'} · ${entries.length}건</div></div><span class="tag ${key === 's' ? 'red' : 'blue'}">${person.items.length ? money(person.expense) : '—'}</span></div>${entries.length ? `<div class="overflow-x"><table class="ledger-table"><thead><tr><th>거래 항목</th><th>구분</th><th>결제일</th><th class="memo">결제처</th><th>처리</th><th style="text-align:right">금액</th><th>관리</th></tr></thead><tbody>${entries.map(r => `<tr><td>${escapeHtml(r.title)}${r.virtual ? ' <small>반복 예정</small>' : ''}</td><td><span class="tag ${typeTagClass(r.type)}">${escapeHtml(typeLabels[r.type])}</span></td><td>${escapeHtml(r.date.slice(5))}</td><td class="memo">${escapeHtml(r.paymentMethod || r.account)}</td><td class="pay-status"><button class="paytoggle ${r.paid ? 'paid' : ''}" data-pay="${escapeHtml(r.id)}">${r.paid ? '완료' : '미완료'}</button></td><td class="amount mono">${money(r.amount)}</td><td><button class="small-action" data-ledger-edit="${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-ledger-delete="${escapeHtml(r.id)}">삭제</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="no-data">이 달에는 가계부 자료가 없습니다.</div>'}<div class="ledger-foot"><span>${name} 지출 합계</span><span>${person.items.length ? money(person.expense) : '—'}</span></div></section>`;
 }
 function ledger() {
@@ -408,6 +417,40 @@ async function togglePaid(id) {
   } else await updateDoc(doc(db, 'households', state.access.householdId, 'transactions', id), { paid: !r.paid, paidDate: r.paid ? '' : today, updatedAt: serverTimestamp() });
   await writeAudit('상태 변경', '가계부 기록', `${r.person === 'y' ? '용현' : '선영'} · ${r.title} · ${r.paid ? '미완료로 변경' : '완료 처리'}`);
 }
+async function reorderLedger(sourceId, targetId) {
+  if (!sourceId || sourceId === targetId) return;
+  const source = state.transactions.find(record => record.id === sourceId), target = state.transactions.find(record => record.id === targetId);
+  if (!source || !target || source.person !== target.person || monthOf(source.date) !== selectedMonth() || monthOf(target.date) !== selectedMonth()) return;
+  const rows = state.transactions.filter(record => record.person === source.person && monthOf(record.date) === selectedMonth() && (state.filter === 'all' || record.type === state.filter)).sort(ledgerOrder);
+  const from = rows.findIndex(record => record.id === sourceId), to = rows.findIndex(record => record.id === targetId);
+  if (from < 0 || to < 0) return;
+  const [moved] = rows.splice(from, 1); rows.splice(to, 0, moved);
+  await Promise.all(rows.map((record, index) => updateDoc(doc(db, 'households', state.access.householdId, 'transactions', record.id), { sortOrder: (index + 1) * 10, updatedAt: serverTimestamp() })));
+  await writeAudit('순서 변경', '가계부 기록', `${source.person === 'y' ? '용현' : '선영'} · ${source.title}`);
+  notify('장부 순서를 변경했습니다.');
+}
+let draggedLedgerId = '';
+document.addEventListener('dragstart', event => {
+  const row = event.target.closest('tr[data-drag-id]'); if (!row) return;
+  draggedLedgerId = row.dataset.dragId;
+  event.dataTransfer?.setData('text/plain', draggedLedgerId);
+  event.dataTransfer && (event.dataTransfer.effectAllowed = 'move');
+  row.classList.add('dragging');
+});
+document.addEventListener('dragover', event => {
+  const row = event.target.closest('tr[data-drag-id]');
+  if (!row || !draggedLedgerId || row.dataset.dragId === draggedLedgerId) return;
+  event.preventDefault();
+  row.classList.add('drag-over');
+});
+document.addEventListener('dragleave', event => event.target.closest('tr[data-drag-id]')?.classList.remove('drag-over'));
+document.addEventListener('dragend', () => { root.querySelectorAll('.dragging,.drag-over').forEach(row => row.classList.remove('dragging', 'drag-over')); draggedLedgerId = ''; });
+document.addEventListener('drop', async event => {
+  const row = event.target.closest('tr[data-drag-id]'), sourceId = draggedLedgerId || event.dataTransfer?.getData('text/plain');
+  if (!row || !sourceId) return;
+  event.preventDefault();
+  try { await reorderLedger(sourceId, row.dataset.dragId); } catch (error) { failure(error); }
+});
 document.addEventListener('click', async event => {
   const button = event.target.closest('button'); if (!button) return;
   try {

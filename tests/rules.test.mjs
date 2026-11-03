@@ -69,6 +69,8 @@ test('금액, 소유자, 허용 목록 변경은 규칙에서 차단한다', asy
   await assertFails(setDoc(doc(y, earningPath('bad')), { ...earning(), settlementDeduction: 1100 }));
   await assertFails(updateDoc(doc(y, earningPath('one')), { ownerUid: 's' }));
   await assertFails(updateDoc(doc(y, path('one')), { createdAt: Timestamp.fromMillis(1) }));
+  await assertSucceeds(updateDoc(doc(y, path('one')), { sortOrder: 10, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(y, path('bad-order')), { ...transaction(), sortOrder: -1 }));
   await assertFails(setDoc(doc(y, 'allowedUsers/new'), { householdId, deliveryEnabled: true }));
   assert.equal((await getDoc(doc(y, earningPath('one')))).exists(), true);
 });
