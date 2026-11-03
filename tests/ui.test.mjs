@@ -84,6 +84,7 @@ test('A안 카드 순서와 다섯 화면 폭의 가로 맞춤', async () => {
       const { context, page, errors } = await pageAt(browser, width);
       const positions = await page.locator('.family-card,.household-quick,.home-chart,.business-mini').evaluateAll(elements => elements.map(el => el.getBoundingClientRect().top));
       assert.ok(positions.every((top, i) => i === 0 || top > positions[i - 1]), `카드 순서 ${width}`);
+      await page.getByText('누적 총수입', { exact: false }).waitFor();
       const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       assert.equal(horizontalOverflow, false, `가로 넘침 ${width}`);
       assert.equal(await page.locator('.sidebar').isVisible(), width > 760);
