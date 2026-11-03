@@ -111,6 +111,7 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await yRows.first().getByRole('button', { name: '아래로 이동' }).click();
     await page.getByText('장부 순서를 변경했습니다.').waitFor();
     assert.match(await page.locator('.ledger-panel').first().locator('tbody tr').first().innerText(), /테스트 식비/);
+    assert.equal(await page.locator('.ledger-panel .overflow-x').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth)), true);
     assert.ok((await page.locator('[data-ledger-add]').boundingBox()).height >= 43);
     assert.match(await page.locator('[data-ledger-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     assert.match(await page.locator('[data-rule-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
