@@ -198,6 +198,12 @@ test('개인 설정, 반복 납부, JSON 백업과 중복 가져오기', async (
     await page.locator('#ledgerForm [name=amount]').fill('300');
     await page.locator('#ledgerForm [name=startMonth]').fill('2026-11');
     await page.getByRole('button', { name: '기록 저장' }).click();
+    await page.locator('details.card summary').click();
+    await page.getByText('용현', { exact: true }).waitFor();
+    await page.locator('.sidebar [data-audit]').click();
+    await page.getByRole('heading', { name: '수정 이력' }).waitFor();
+    await page.getByText('반복 거래 등록').waitFor();
+    await page.getByRole('button', { name: '닫기' }).click();
     const row = page.locator('.ledger-table tr').filter({ hasText: '정기 테스트' });
     await row.getByText('반복 예정').waitFor();
     await row.getByRole('button', { name: '미완료' }).click();

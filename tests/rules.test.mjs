@@ -10,6 +10,7 @@ const environment = await initializeTestEnvironment({
 });
 const householdId = 'family';
 const path = id => `households/${householdId}/transactions/${id}`;
+const auditPath = id => `households/${householdId}/auditLogs/${id}`;
 const earningPath = id => `users/y/deliveryEarnings/${id}`;
 await environment.withSecurityRulesDisabled(async context => {
   const db = context.firestore();
@@ -19,6 +20,7 @@ await environment.withSecurityRulesDisabled(async context => {
 });
 const transaction = () => ({ person: 'y', type: 'expense', title: '테스트', amount: 100, date: '2026-11-02', category: '식비', paymentMethod: '카드', account: '', memo: '', paid: false, paidDate: '', recurringRuleId: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 const earning = () => ({ ownerUid: 'y', kind: 'income', platform: '쿠팡이츠', workDate: '2026-11-02', workMonth: '2026-11', grossIncome: 1000, settlementDeduction: 100, deliveryCount: 1, workHours: 1, distanceKm: 5, memo: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+const audit = uid => ({ actorUid: uid, action: '수정', target: '가계부 기록', summary: '용현 · 테스트 · 100원', createdAt: serverTimestamp() });
 test('승인된 두 계정은 공동 거래를 읽고 쓸 수 있다', async () => {
   const y = environment.authenticatedContext('y').firestore();
   const s = environment.authenticatedContext('s').firestore();
@@ -34,6 +36,18 @@ test('미승인 및 미인증 계정은 공동 거래에 접근할 수 없다', 
   await assertFails(getDocs(collection(outsider, 'households/family/transactions')));
   await assertFails(setDoc(doc(outsider, path('nope')), transaction()));
   await assertFails(getDoc(doc(anonymous, path('one'))));
+});
+test('수정 이력은 승인된 두 계정만 읽고 작성하며 변경·삭제할 수 없다', async () => {
+  const y = environment.authenticatedContext('y').firestore();
+  const s = environment.authenticatedContext('s').firestore();
+  const outsider = environment.authenticatedContext('outsider').firestore();
+  await assertSucceeds(setDoc(doc(y, auditPath('one')), audit('y')));
+  await assertSucceeds(getDoc(doc(s, auditPath('one'))));
+  await assertSucceeds(getDocs(collection(s, 'households/family/auditLogs')));
+  await assertFails(updateDoc(doc(s, auditPath('one')), { summary: '변조' }));
+  await assertFails(deleteDoc(doc(s, auditPath('one'))));
+  await assertFails(setDoc(doc(s, auditPath('spoof')), audit('y')));
+  await assertFails(getDoc(doc(outsider, auditPath('one'))));
 });
 test('두 승인 계정은 공동 배달 장부를 읽고 쓸 수 있고 외부 계정은 차단된다', async () => {
   const y = environment.authenticatedContext('y').firestore();

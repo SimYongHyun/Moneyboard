@@ -9,8 +9,8 @@ const dialog = document.getElementById('recordDialog');
 const formContainer = document.getElementById('recordFormContainer');
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const initialYear = Number(today.slice(0, 4));
-const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
-const collectionNames = { transactions: 'transactions', rules: 'recurringRules', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
+const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], auditLogs: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
+const collectionNames = { transactions: 'transactions', rules: 'recurringRules', auditLogs: 'auditLogs', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
 let auth, db, unsubs = [], busy = false, toastTimer;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const selectedMonth = () => monthKey(state.year, state.month);
@@ -41,6 +41,18 @@ function applyBranding() {
   root.querySelectorAll('.section-heading h3').forEach(element => {
     if (element.textContent === '배달 부업 · 투자금과 기록') element.textContent = '부업 · 투자금과 기록';
   });
+  if (state.status === 'ready') root.querySelectorAll('.side-footer').forEach(element => {
+    if (!element.querySelector('[data-audit]')) element.insertAdjacentHTML('afterbegin', '<button class="pill-btn" data-audit>수정 이력</button>');
+  });
+  const recurring = [...root.querySelectorAll('details.card')].find(element => element.querySelector('summary')?.textContent.includes('반복 거래'));
+  recurring?.querySelectorAll('.investment-list > .between').forEach((row, index) => {
+    const rule = state.rules[index], text = row.querySelector(':scope > span:first-child');
+    if (!rule || !text || text.querySelector('.rule-owner')) return;
+    const tag = document.createElement('span');
+    tag.className = `tag rule-owner ${rule.person === 'y' ? 'blue' : 'red'}`;
+    tag.textContent = rule.person === 'y' ? '용현' : '선영';
+    text.prepend(tag, ' ');
+  });
 }
 function authScreen() {
   const loading = state.status === 'loading';
@@ -48,7 +60,7 @@ function authScreen() {
   root.innerHTML = `<div class="mock-app vA"><div class="app-shell side-shell"><aside class="sidebar"><div class="logo">◈ 머니보드</div><div class="side-footer"><b>우리집 공동 가계부</b>승인된 두 계정만 사용</div></aside><main class="app-main"><section class="card" style="max-width:510px;margin:12vh auto;width:100%;padding:29px"><span class="tag blue">우리집 머니보드</span><h2 style="margin:16px 0 9px">${loading ? '연결 중입니다' : state.status === 'signedOut' ? 'Google 계정으로 로그인' : '접근 상태 확인'}</h2><p class="sectionsub" style="font-size:12px">${escapeHtml(loading ? '인증 및 권한을 확인하고 있습니다.' : state.status === 'signedOut' ? '승인된 가족 계정으로 로그인하면 공동 가계부가 열립니다.' : accessMessage())}</p>${state.user ? `<p class="sectionsub">계정: ${escapeHtml(state.user.email || '')}<br>UID: ${escapeHtml(state.user.uid)}</p>` : ''}<div class="inline" style="margin-top:20px">${state.status === 'signedOut' ? '<button class="pill-btn primary" data-login>Google 로그인</button>' : ''}${state.user ? '<button class="pill-btn" data-logout>로그아웃</button>' : ''}</div></section></main></div></div>`;
   applyBranding();
 }
-function clearSubscriptions() { for (const stop of unsubs) stop(); unsubs = []; state.loaded = {}; state.transactions = []; state.rules = []; state.earnings = []; state.expenses = []; state.investments = []; state.settings = {}; }
+function clearSubscriptions() { for (const stop of unsubs) stop(); unsubs = []; state.loaded = {}; state.transactions = []; state.rules = []; state.auditLogs = []; state.earnings = []; state.expenses = []; state.investments = []; state.settings = {}; }
 function subscribe(key, path) {
   state.loaded[key] = false;
   const unsubscribe = onSnapshot(query(collection(db, ...path), limit(5000)), { includeMetadataChanges: true }, snapshot => {
@@ -85,6 +97,7 @@ async function authorize(user) {
     subscribeSettings();
     subscribe('transactions', ['households', state.access.householdId, 'transactions']);
     subscribe('rules', ['households', state.access.householdId, 'recurringRules']);
+    subscribe('auditLogs', ['households', state.access.householdId, 'auditLogs']);
     if (hasDelivery()) {
       subscribe('earnings', ['users', deliveryOwnerUid(), 'deliveryEarnings']);
       subscribe('expenses', ['users', deliveryOwnerUid(), 'deliveryExpenses']);
@@ -238,6 +251,7 @@ async function saveDelivery(form) {
   const ref = id ? doc(db, 'users', deliveryOwnerUid(), path, id) : doc(collection(db, 'users', deliveryOwnerUid(), path));
   if (id) await updateDoc(ref, { ...record, updatedAt: serverTimestamp() });
   else await setDoc(ref, { ...record, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await writeAudit(id ? '수정' : '등록', '부업 기록', `${record.platform || record.category} · ${money(record.grossIncome ?? record.amount)}`);
   if (date) { state.year = Number(date.slice(0, 4)); state.month = Number(date.slice(5, 7)); state.calendarMonth = selectedMonth(); } state.page = 'side'; closeDialog(); render(); notify('기록을 저장했습니다.');
 }
 function openLedger(record = null, recurring = false) {
@@ -248,6 +262,17 @@ function openLedger(record = null, recurring = false) {
 }
 function openSettings() {
   openDialog('개인 설정', '이 설정은 로그인한 본인에게만 보입니다.', `<form id="settingsForm">${field('표시 이름', 'displayName', state.settings.displayName || state.user.displayName || '', { maxLength: 40 })}${choice('기본 배달 플랫폼', 'defaultPlatform', [['쿠팡이츠', '쿠팡이츠'], ['배민커넥트', '배민커넥트']], state.settings.defaultPlatform || '쿠팡이츠')}${buttons(!!state.settings.ownerUid)}</form>`);
+}
+function auditMillis(value) { return value?.toDate ? value.toDate().getTime() : value instanceof Date ? value.getTime() : Number(value?.seconds || 0) * 1000; }
+function auditTime(value) { const time = auditMillis(value); return time ? new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(time)) : '저장 중'; }
+function auditActor(uid) { return uid === state.household?.ownerUid ? '용현' : '선영'; }
+async function writeAudit(action, target, summary) {
+  const ref = doc(collection(db, 'households', state.access.householdId, 'auditLogs'));
+  await setDoc(ref, { actorUid: state.user.uid, action, target, summary: String(summary).slice(0, 160), createdAt: serverTimestamp() });
+}
+function openAuditLog() {
+  const logs = [...state.auditLogs].sort((a, b) => auditMillis(b.createdAt) - auditMillis(a.createdAt)).slice(0, 100);
+  openDialog('수정 이력', '최근 100건을 표시합니다. 기록은 수정하거나 삭제할 수 없습니다.', `<div class="investment-list audit-list">${logs.length ? logs.map(log => `<div class="between align-start"><span><b>${escapeHtml(auditActor(log.actorUid))}</b> · ${escapeHtml(log.target)} ${escapeHtml(log.action)}<br><span class="micro">${escapeHtml(log.summary)}</span></span><span class="micro">${auditTime(log.createdAt)}</span></div>`).join('') : '<div class="no-data">아직 남겨진 수정 이력이 없습니다.</div>'}</div>`);
 }
 async function saveSettings(form) {
   const ref = doc(db, 'users', state.user.uid, 'settings', 'app');
@@ -269,6 +294,7 @@ async function saveLedger(form) {
   const ref = documentId ? doc(db, 'households', state.access.householdId, path, documentId) : doc(collection(db, 'households', state.access.householdId, path));
   if (documentId && !id.startsWith('virtual:')) await updateDoc(ref, { ...value, updatedAt: serverTimestamp() });
   else await setDoc(ref, { ...value, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await writeAudit(id ? '수정' : '등록', rule ? '반복 거래' : '가계부 기록', `${value.person === 'y' ? '용현' : '선영'} · ${value.title} · ${money(value.amount)}`);
   if (!rule) { state.year = Number(value.date.slice(0, 4)); state.month = Number(value.date.slice(5, 7)); }
   closeDialog(); render(); notify('가계부 기록을 저장했습니다.');
 }
@@ -360,13 +386,17 @@ async function removeDelivery(value) {
   const key = kind === 'income' ? 'earnings' : kind === 'expense' ? 'expenses' : 'investments';
   const r = state[key].find(item => item.id === id); if (!r) return;
   if (!confirm(`${r.workDate} 기록을 삭제하시겠습니까?`)) return;
-  await deleteDoc(doc(db, 'users', deliveryOwnerUid(), collectionNames[key], id)); notify('기록을 삭제했습니다.');
+  await deleteDoc(doc(db, 'users', deliveryOwnerUid(), collectionNames[key], id));
+  await writeAudit('삭제', '부업 기록', `${r.platform || r.category} · ${money(r.grossIncome ?? r.amount)}`);
+  notify('기록을 삭제했습니다.');
 }
 async function removeLedger(id) {
   if (id.startsWith('virtual:')) throw Error('반복 예정 항목은 아래의 반복 거래 관리에서 규칙을 수정하거나 삭제하세요.');
   const r = state.transactions.find(item => item.id === id); if (!r) return;
   if (!confirm(`${r.title} 기록을 삭제하시겠습니까?`)) return;
-  await deleteDoc(doc(db, 'households', state.access.householdId, 'transactions', id)); notify('기록을 삭제했습니다.');
+  await deleteDoc(doc(db, 'households', state.access.householdId, 'transactions', id));
+  await writeAudit('삭제', '가계부 기록', `${r.person === 'y' ? '용현' : '선영'} · ${r.title} · ${money(r.amount)}`);
+  notify('기록을 삭제했습니다.');
 }
 async function togglePaid(id) {
   const virtual = id.startsWith('virtual:');
@@ -376,6 +406,7 @@ async function togglePaid(id) {
     const value = cleanTransaction({ ...r, paid: true, paidDate: today, recurringRuleId: id.split(':')[1] });
     await setDoc(doc(db, 'households', state.access.householdId, 'transactions', `${value.recurringRuleId}_${monthOf(value.date)}`), { ...value, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   } else await updateDoc(doc(db, 'households', state.access.householdId, 'transactions', id), { paid: !r.paid, paidDate: r.paid ? '' : today, updatedAt: serverTimestamp() });
+  await writeAudit('상태 변경', '가계부 기록', `${r.person === 'y' ? '용현' : '선영'} · ${r.title} · ${r.paid ? '미완료로 변경' : '완료 처리'}`);
 }
 document.addEventListener('click', async event => {
   const button = event.target.closest('button'); if (!button) return;
@@ -385,13 +416,21 @@ document.addEventListener('click', async event => {
     if (button.hasAttribute('data-login')) { await signInWithPopup(auth, new GoogleAuthProvider()); return; }
     if (button.hasAttribute('data-logout')) { await signOut(auth); return; }
     if (button.hasAttribute('data-settings')) { openSettings(); return; }
+    if (button.hasAttribute('data-audit')) { openAuditLog(); return; }
     if (button.dataset.calendarMove) { state.calendarMonth = shiftCalendarMonth(Number(button.dataset.calendarMove)); render(); return; }
     if (button.dataset.page) { if (button.dataset.page === 'side' && state.page !== 'side') state.calendarMonth = null; state.page = button.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (button.dataset.add) { openDelivery(button.dataset.add, button.dataset.platform || state.settings.defaultPlatform || '쿠팡이츠'); return; }
     if (button.hasAttribute('data-ledger-add')) { openLedger(); return; }
     if (button.hasAttribute('data-rule-add')) { openLedger(null, true); return; }
     if (button.dataset.ruleEdit) { const rule = state.rules.find(r => r.id === button.dataset.ruleEdit); if (rule) openLedger(rule, true); return; }
-    if (button.dataset.ruleDelete) { const rule = state.rules.find(r => r.id === button.dataset.ruleDelete); if (rule && confirm(`반복 거래 ${rule.title}의 규칙 전체를 삭제하시겠습니까? 이미 납부 처리한 개별 기록은 유지됩니다.`)) await deleteDoc(doc(db, 'households', state.access.householdId, 'recurringRules', rule.id)); return; }
+    if (button.dataset.ruleDelete) {
+      const rule = state.rules.find(r => r.id === button.dataset.ruleDelete);
+      if (rule && confirm(`반복 거래 ${rule.title}의 규칙 전체를 삭제하시겠습니까? 이미 납부 처리한 개별 기록은 유지됩니다.`)) {
+        await deleteDoc(doc(db, 'households', state.access.householdId, 'recurringRules', rule.id));
+        await writeAudit('삭제', '반복 거래', `${rule.person === 'y' ? '용현' : '선영'} · ${rule.title} · ${money(rule.amount)}`);
+      }
+      return;
+    }
     if (button.dataset.ledgerEdit) { const record = allTransactions(selectedMonth()).find(r => r.id === button.dataset.ledgerEdit); if (record) openLedger(record); return; }
     if (button.dataset.ledgerDelete) { await removeLedger(button.dataset.ledgerDelete); return; }
     if (button.dataset.pay) { await togglePaid(button.dataset.pay); return; }

@@ -40,6 +40,15 @@ service cloud.firestore {
         && d.day is int && d.day >= 1 && d.day <= 31
         && d.installments is int && d.installments >= 0 && d.installments <= 120 && stamps(d);
     }
+    function audit(d) {
+      return d.keys().hasAll(['actorUid','action','target','summary','createdAt'])
+        && d.keys().hasOnly(['actorUid','action','target','summary','createdAt'])
+        && d.actorUid == request.auth.uid
+        && d.action in ['등록','수정','삭제','상태 변경']
+        && d.target in ['가계부 기록','반복 거래','부업 기록']
+        && text(d.summary,160) && d.summary.size() > 0
+        && d.createdAt is timestamp && d.createdAt == request.time;
+    }
     function earning(d, uid) {
       return d.keys().hasAll(['ownerUid','kind','platform','workDate','workMonth','grossIncome','settlementDeduction','deliveryCount','workHours','distanceKm','memo','createdAt','updatedAt'])
         && d.keys().hasOnly(['ownerUid','kind','platform','workDate','workMonth','grossIncome','settlementDeduction','deliveryCount','workHours','distanceKm','memo','createdAt','updatedAt'])
@@ -79,6 +88,11 @@ service cloud.firestore {
         allow update: if householdMember(hid) && recurring(request.resource.data)
           && request.resource.data.createdAt == resource.data.createdAt;
         allow delete: if householdMember(hid);
+      }
+      match /auditLogs/{id} {
+        allow read: if householdMember(hid);
+        allow create: if householdMember(hid) && audit(request.resource.data);
+        allow update, delete: if false;
       }
     }
     match /users/{uid} {
