@@ -159,9 +159,20 @@ function personPanel(person, key) {
   const entries = person.items.filter(r => state.filter === 'all' || r.type === state.filter).sort(ledgerOrder);
   return `<section class="ledger-panel ${key === 's' ? 'pink' : ''}"><div class="ledger-panel-head"><div><strong>${name} 거래 장부</strong><div class="ledger-panel-sub">예상 잔여 ${person.items.length ? money(person.balance) : '—'} · ${entries.length}건</div></div><span class="tag ${key === 's' ? 'red' : 'blue'}">${person.items.length ? money(person.expense) : '—'}</span></div>${entries.length ? `<div class="overflow-x"><table class="ledger-table"><thead><tr><th>거래 항목</th><th>구분</th><th>결제일</th><th class="memo">결제처</th><th>처리</th><th style="text-align:right">금액</th><th>관리</th></tr></thead><tbody>${entries.map(r => `<tr><td>${escapeHtml(r.title)}${r.virtual ? ' <small>반복 예정</small>' : ''}</td><td><span class="tag ${typeTagClass(r.type)}">${escapeHtml(typeLabels[r.type])}</span></td><td>${escapeHtml(r.date.slice(5))}</td><td class="memo">${escapeHtml(r.paymentMethod || r.account)}</td><td class="pay-status"><button class="paytoggle ${r.paid ? 'paid' : ''}" data-pay="${escapeHtml(r.id)}">${r.paid ? '완료' : '미완료'}</button></td><td class="amount mono">${money(r.amount)}</td><td><button class="small-action" data-ledger-edit="${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-ledger-delete="${escapeHtml(r.id)}">삭제</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="no-data">이 달에는 가계부 자료가 없습니다.</div>'}<div class="ledger-foot"><span>${name} 지출 합계</span><span>${person.items.length ? money(person.expense) : '—'}</span></div></section>`;
 }
+function categoryExpenseGraph() {
+  const expenses = allTransactions(selectedMonth()).filter(record => record.type === 'expense');
+  const ranks = Object.entries(expenses.reduce((total, record) => {
+    const category = record.category?.trim() || '미분류';
+    total[category] = (total[category] || 0) + record.amount;
+    return total;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const total = ranks.reduce((sum, [, amount]) => sum + amount, 0);
+  const max = Math.max(1, ...ranks.map(([, amount]) => amount));
+  return `<section class="card category-rank"><div class="section-heading"><div><h3>카테고리별 지출 순위</h3><div class="sectionsub">${state.year}년 ${state.month}월 · 지출로 등록한 거래 기준</div></div><span class="tag red">합계 ${money(total)}</span></div>${ranks.length ? `<div class="category-rank-list">${ranks.map(([category, amount], index) => `<div class="category-rank-row"><span class="category-rank-number">${index + 1}</span><div class="category-rank-detail"><div class="between"><b>${escapeHtml(category)}</b><strong class="mono">${money(amount)}</strong></div><div class="category-rank-track"><span style="width:${amount / max * 100}%"></span></div></div><span class="micro">${total ? (amount / total * 100).toFixed(1) : 0}%</span></div>`).join('')}</div>` : '<div class="no-data">이번 달 지출을 등록하면 카테고리별 순위가 표시됩니다.</div>'}</section>`;
+}
 function ledger() {
   const t = house(selectedMonth()), shown = t.hasData, value = n => shown ? money(n) : '—';
-  return shell(`${heading('우리집 월별 가계부', '부부 합산 현황과 용현·선영 병렬 장부를 함께 확인합니다.')}<section class="ledger-overview surface"><div class="ledger-lead"><div><span class="tag blue">우리집 이번 달 현황</span><div class="sectionsub">이번 달 예상 잔여 금액</div><div class="counter mono">${value(t.balance)}</div></div><button class="pill-btn ledger-add-btn" data-ledger-add>+ 지출 등록</button></div><div class="ledger-mini"><span>수령액 <b>${value(t.income)}</b></span><span>지출 예정 <b>${value(t.expense)}</b></span><span>용현 잔여 <b>${t.y.items.length ? money(t.y.balance) : '—'}</b></span><span>선영 잔여 <b>${t.s.items.length ? money(t.s.balance) : '—'}</b></span></div></section><div class="between wrap"><div class="filter-row"><span class="tag blue">월별 장부</span><span class="tag">용현/선영 병렬 보기</span><select data-filter aria-label="거래 분류 필터"><option value="all">전체</option>${Object.entries(typeLabels).map(([v, label]) => `<option value="${v}" ${value === state.filter ? 'selected' : ''}>${label}</option>`).join('')}</select></div><div class="inline"><button class="pill-btn" data-rule-add>반복 등록</button><button class="pill-btn" data-backup="json">JSON 백업</button><button class="pill-btn" data-backup="csv">연간 CSV</button><button class="pill-btn" data-import>가져오기</button></div></div><div class="ledger-columns">${personPanel(t.y, 'y')}${personPanel(t.s, 's')}</div><div class="ledger-footer"><div><div class="micro">용현 지출 합계</div><b>${t.y.items.length ? money(t.y.expense) : '—'}</b></div><div><div class="micro">선영 지출 합계</div><b>${t.s.items.length ? money(t.s.expense) : '—'}</b></div><div><div class="micro">부부 총 잔여 예상액</div><b class="plus">${value(t.balance)}</b></div></div><details class="card"><summary>반복 거래 ${state.rules.length}건 관리</summary><div class="investment-list">${state.rules.map(r => `<div class="between"><span>${escapeHtml(r.title)} · ${money(r.amount)} · 매월 ${r.day}일${r.installments ? ` · ${r.installments}회 할부` : ''}</span><span><button class="small-action" data-rule-edit="${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-rule-delete="${escapeHtml(r.id)}">삭제</button></span></div>`).join('')}</div></details><div class="note">카드 사용액은 지출로, 카드대금 납부는 내부 이체로 등록하세요. 저축·대출 원금·내부 이체는 지출 합계에서 제외합니다.</div>`);
+  return shell(`${heading('우리집 월별 가계부', '부부 합산 현황과 용현·선영 병렬 장부를 함께 확인합니다.')}<section class="ledger-overview surface"><div class="ledger-lead"><div><span class="tag blue">우리집 이번 달 현황</span><div class="sectionsub">이번 달 예상 잔여 금액</div><div class="counter mono">${value(t.balance)}</div></div><button class="pill-btn ledger-add-btn" data-ledger-add>+ 지출 등록</button></div><div class="ledger-mini"><span>수령액 <b>${value(t.income)}</b></span><span>지출 예정 <b>${value(t.expense)}</b></span><span>용현 잔여 <b>${t.y.items.length ? money(t.y.balance) : '—'}</b></span><span>선영 잔여 <b>${t.s.items.length ? money(t.s.balance) : '—'}</b></span></div></section><div class="between wrap"><div class="filter-row"><span class="tag blue">월별 장부</span><span class="tag">용현/선영 병렬 보기</span><select data-filter aria-label="거래 분류 필터"><option value="all">전체</option>${['income', 'expense'].map(v => `<option value="${v}" ${v === state.filter ? 'selected' : ''}>${typeLabels[v]}</option>`).join('')}</select></div><div class="inline"><button class="pill-btn" data-rule-add>반복 등록</button><button class="pill-btn" data-copy-previous>이전월 복사</button><button class="pill-btn" data-backup="json">JSON 백업</button><button class="pill-btn" data-backup="csv">연간 CSV</button><button class="pill-btn" data-import>가져오기</button></div></div><div class="ledger-columns">${personPanel(t.y, 'y')}${personPanel(t.s, 's')}</div><div class="ledger-footer"><div><div class="micro">용현 지출 합계</div><b>${t.y.items.length ? money(t.y.expense) : '—'}</b></div><div><div class="micro">선영 지출 합계</div><b>${t.s.items.length ? money(t.s.expense) : '—'}</b></div><div><div class="micro">부부 총 잔여 예상액</div><b class="plus">${value(t.balance)}</b></div></div>${categoryExpenseGraph()}<details class="card"><summary>반복 거래 ${state.rules.length}건 관리</summary><div class="investment-list">${state.rules.map(r => `<div class="between"><span>${escapeHtml(r.title)} · ${money(r.amount)} · 매월 ${r.day}일${r.installments ? ` · ${r.installments}회 할부` : ''}</span><span><button class="small-action" data-rule-edit="${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-rule-delete="${escapeHtml(r.id)}">삭제</button></span></div>`).join('')}</div></details><div class="note">카드 사용액은 지출로, 카드대금 납부는 내부 이체로 등록하세요. 저축·대출 원금·내부 이체는 지출 합계에서 제외합니다.</div>`);
 }
 function periodSeries() { return Array.from({ length: 12 }, (_, i) => deliveryTotals(state.earnings, state.expenses, monthKey(state.year, i + 1), true)); }
 function monthlyChart() {
@@ -403,6 +414,27 @@ async function removeDelivery(value) {
   await writeAudit('삭제', '부업 기록', `${r.platform || r.category} · ${money(r.grossIncome ?? r.amount)}`);
   notify('기록을 삭제했습니다.');
 }
+async function copyPreviousMonth() {
+  const [year, month] = selectedMonth().split('-').map(Number);
+  const previous = monthKey(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1);
+  const lastDay = new Date(year, month, 0).getDate();
+  const source = state.transactions.filter(record => monthOf(record.date) === previous && !record.recurringRuleId);
+  if (!source.length) { notify(`${previous}에 복사할 일반 거래가 없습니다.`); return; }
+  if (!confirm(`${previous}의 일반 거래 ${source.length}건을 ${selectedMonth()}에 복사할까요? 반복 거래는 자동 표시되므로 복사하지 않습니다.`)) return;
+  const copied = source.map(record => {
+    const day = Math.min(Number(record.date.slice(8, 10)), lastDay);
+    return cleanTransaction({ ...record, date: `${selectedMonth()}-${String(day).padStart(2, '0')}`, paid: false, paidDate: '', recurringRuleId: '' });
+  });
+  for (let index = 0; index < copied.length; index += 450) {
+    const batch = writeBatch(db);
+    for (const record of copied.slice(index, index + 450)) {
+      batch.set(doc(collection(db, 'households', state.access.householdId, 'transactions')), { ...record, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
+    await batch.commit();
+  }
+  await writeAudit('복사', '가계부 기록', `${previous} → ${selectedMonth()} · ${copied.length}건`);
+  notify(`${previous} 거래 ${copied.length}건을 복사했습니다.`);
+}
 async function removeLedger(id) {
   if (id.startsWith('virtual:')) throw Error('반복 예정 항목은 아래의 반복 거래 관리에서 규칙을 수정하거나 삭제하세요.');
   const r = state.transactions.find(item => item.id === id); if (!r) return;
@@ -492,6 +524,7 @@ document.addEventListener('click', async event => {
     if (button.dataset.add) { openDelivery(button.dataset.add, button.dataset.platform || state.settings.defaultPlatform || '쿠팡이츠'); return; }
     if (button.hasAttribute('data-ledger-add')) { openLedger(); return; }
     if (button.hasAttribute('data-rule-add')) { openLedger(null, true); return; }
+    if (button.hasAttribute('data-copy-previous')) { await copyPreviousMonth(); return; }
     if (button.dataset.ruleEdit) { const rule = state.rules.find(r => r.id === button.dataset.ruleEdit); if (rule) openLedger(rule, true); return; }
     if (button.dataset.ruleDelete) {
       const rule = state.rules.find(r => r.id === button.dataset.ruleDelete);

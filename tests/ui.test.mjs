@@ -32,6 +32,7 @@ const data = new Map(); const watchers = new Map(); let serial = 0;
 data.set('households/family/transactions', [
  {id:'income-y', person:'y',type:'income',title:'테스트 수입',date:'2026-11-01',amount:10000,paid:true},
  {id:'cost-y', person:'y',type:'expense',title:'테스트 식비',date:'2026-11-02',amount:3000,paid:false,paymentMethod:'카드'},
+ {id:'previous-y', person:'y',type:'expense',title:'지난달 식비',date:'2026-10-31',amount:1200,paid:true,category:'식비'},
  {id:'income-s', person:'s',type:'income',title:'테스트 수입',date:'2026-11-01',amount:8000,paid:true},
  {id:'cost-s', person:'s',type:'expense',title:'테스트 교통비',date:'2026-11-02',amount:2000,paid:false,paymentMethod:'현금'}
 ]);
@@ -101,14 +102,23 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
   try {
     const { context, page, errors } = await pageAt(browser, 1440);
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
+    await page.getByRole('heading', { name: '카테고리별 지출 순위' }).waitFor();
+    assert.match(await page.locator('.category-rank').innerText(), /미분류/);
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 수입' }).first().innerText(), /수입/);
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 식비' }).first().innerText(), /지출/);
+    await page.getByLabel('거래 분류 필터').selectOption('expense');
+    assert.equal(await page.locator('.ledger-panel tbody tr').count(), 2);
+    assert.equal(await page.locator('.ledger-panel').first().innerText().then(text => text.includes('테스트 수입')), false);
+    await page.getByLabel('거래 분류 필터').selectOption('all');
     const yRows = page.locator('.ledger-panel').first().locator('tbody tr[data-drag-id]');
     assert.equal(await yRows.count(), 2);
     await yRows.filter({ hasText: '테스트 수입' }).dragTo(yRows.filter({ hasText: '테스트 식비' }));
     await page.getByText('장부 순서를 변경했습니다.').waitFor();
     assert.match(await page.locator('.ledger-panel').first().locator('tbody tr').first().innerText(), /테스트 수입/);
     assert.equal(await page.locator('.ledger-panel .overflow-x').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth)), true);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: '이전월 복사' }).click();
+    await page.getByText('지난달 식비').waitFor();
     assert.ok((await page.locator('[data-ledger-add]').boundingBox()).height >= 43);
     assert.match(await page.locator('[data-ledger-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     assert.match(await page.locator('[data-rule-add]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
