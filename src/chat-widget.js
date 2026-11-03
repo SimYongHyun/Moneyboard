@@ -5,13 +5,13 @@ const suggestions = ['이번 달 지출', '이번 달 남은 돈', '미납 예�
 export function mountChatbot(getContext) {
   const host = document.createElement('aside');
   host.id = 'moneyboard-chat';
-  host.setAttribute('aria-label', '머니보드 비서');
-  host.innerHTML = `<section class="mb-chat-panel" id="mb-chat-panel" role="region" aria-label="머니보드 비서 대화" hidden>
-    <header class="mb-chat-head"><span class="mb-chat-head-icon" aria-hidden="true">▤</span><div><strong>머니보드 비서</strong><small>우리집 가계부 · 배달 수익 도우미</small></div><button type="button" class="mb-chat-close" aria-label="채팅 닫기">×</button></header>
+  host.setAttribute('aria-label', '용비서');
+  host.innerHTML = `<section class="mb-chat-panel" id="mb-chat-panel" role="region" aria-label="용비서 대화" hidden>
+    <header class="mb-chat-head"><span class="mb-chat-head-icon" aria-hidden="true">▤</span><div><strong>용비서</strong><small>우리집 가계부 · 배달 수익 도우미</small></div><button type="button" class="mb-chat-close" aria-label="용비서 닫기">×</button></header>
     <div class="mb-chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
     <div class="mb-chat-suggestions" aria-label="추천 질문"></div>
     <form class="mb-chat-form"><label class="mb-chat-input-wrap"><span class="sr-only">질문 입력</span><textarea name="question" rows="1" maxlength="500" placeholder="궁금한 내용을 입력해 주세요."></textarea></label><button type="submit" class="mb-chat-send" aria-label="질문 전송">➤</button></form>
-  </section><button type="button" class="mb-chat-fab" aria-label="머니보드 비서 열기" aria-expanded="false" aria-controls="mb-chat-panel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 20l.9-4.5a9 9 0 0 1-.9-4A8.5 8.5 0 0 1 11.5 3 8.5 8.5 0 0 1 20 11.5Z"/><path d="M8 11.5h7"/></svg></button>`;
+  </section><button type="button" class="mb-chat-fab" aria-label="용비서 열기" aria-expanded="false" aria-controls="mb-chat-panel"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 20l.9-4.5a9 9 0 0 1-.9-4A8.5 8.5 0 0 1 11.5 3 8.5 8.5 0 0 1 20 11.5Z"/><path d="M8 11.5h7"/></svg></button>`;
   document.body.append(host);
   const panel = host.querySelector('.mb-chat-panel'), fab = host.querySelector('.mb-chat-fab');
   const messages = host.querySelector('.mb-chat-messages'), form = host.querySelector('.mb-chat-form');
@@ -32,13 +32,13 @@ export function mountChatbot(getContext) {
     while (messages.children.length > 100) messages.firstElementChild.remove();
     messages.scrollTop = messages.scrollHeight;
   }
-  append('assistant', '안녕하세요! 우리집 가계부와 배달 수익에 대해 질문해 주세요. 선택한 연·월을 기준으로도 답해 드립니다.');
+  append('assistant', '안녕하세요! 용비서입니다. 우리집 가계부와 배달 수익에 대해 질문해 주세요. 선택한 연·월을 기준으로도 답해 드립니다.');
   for (const prompt of suggestions) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = prompt;
     button.addEventListener('click', () => submitQuestion(prompt)); suggestionBox.append(button);
   }
-  function open() { panel.hidden = false; fab.setAttribute('aria-expanded', 'true'); fab.setAttribute('aria-label', '머니보드 비서 닫기'); input.focus(); messages.scrollTop = messages.scrollHeight; }
-  function close() { panel.hidden = true; fab.setAttribute('aria-expanded', 'false'); fab.setAttribute('aria-label', '머니보드 비서 열기'); fab.focus(); }
+  function open() { panel.hidden = false; fab.setAttribute('aria-expanded', 'true'); fab.setAttribute('aria-label', '용비서 닫기'); input.focus(); messages.scrollTop = messages.scrollHeight; }
+  function close() { panel.hidden = true; fab.setAttribute('aria-expanded', 'false'); fab.setAttribute('aria-label', '용비서 열기'); fab.focus(); }
   fab.addEventListener('click', () => panel.hidden ? open() : close());
   host.querySelector('.mb-chat-close').addEventListener('click', close);
   function submitQuestion(text) {

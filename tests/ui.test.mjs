@@ -102,7 +102,7 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
   try {
     for (const width of [375, 390, 430, 768, 1440]) {
       const { context, page, errors } = await pageAt(browser, width);
-      const fab = page.getByRole('button', { name: '머니보드 비서 열기' });
+      const fab = page.getByRole('button', { name: '용비서 열기' });
       await fab.waitFor();
       assert.equal(await page.locator('#mb-chat-panel').isVisible(), false);
       await fab.click();
@@ -133,9 +133,9 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
         for (let index = 0; index < 12; index++) { await input.fill('이번 달 지출'); await input.press('Enter'); }
         assert.equal(await page.locator('.mb-chat-messages').evaluate(element => element.scrollHeight > element.clientHeight && element.scrollTop > 0), true);
         assert.deepEqual(outgoing, []);
-        await page.getByRole('button', { name: '채팅 닫기' }).click();
+        await page.locator('.mb-chat-close').click();
         assert.equal(await panel.isVisible(), false);
-        await page.getByRole('button', { name: '머니보드 비서 열기' }).click();
+        await page.getByRole('button', { name: '용비서 열기' }).click();
         assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
       }
       if (width === 390) {
