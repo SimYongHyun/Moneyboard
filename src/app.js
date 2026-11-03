@@ -55,7 +55,10 @@ function applyBranding() {
   });
   root.querySelectorAll('.ledger-columns .ledger-table tbody tr').forEach(row => {
     const edit = row.querySelector('[data-ledger-edit]'), id = edit?.dataset.ledgerEdit;
-    if (id) { row.draggable = true; row.dataset.dragId = id; row.title = id.startsWith('virtual:') ? '반복 예정 항목끼리 끌어 놓아 순서를 변경하세요' : '끌어 놓아 순서를 변경하세요'; }
+    if (id) {
+      row.draggable = true; row.dataset.dragId = id; row.title = id.startsWith('virtual:') ? '반복 예정 항목끼리 끌어 놓아 순서를 변경하세요' : '끌어 놓아 순서를 변경하세요';
+      if (!row.querySelector('.drag-control')) row.insertAdjacentHTML('afterbegin', `<td class="drag-control"><span class="drag-handle" draggable="true" title="끌어 놓아 순서 변경">⠿</span><button type="button" data-move-up="${escapeHtml(id)}" aria-label="위로 이동">↑</button><button type="button" data-move-down="${escapeHtml(id)}" aria-label="아래로 이동">↓</button></td>`);
+    }
   });
 }
 function authScreen() {
@@ -478,6 +481,12 @@ document.addEventListener('click', async event => {
     if (button.hasAttribute('data-logout')) { await signOut(auth); return; }
     if (button.hasAttribute('data-settings')) { openSettings(); return; }
     if (button.hasAttribute('data-audit')) { openAuditLog(); return; }
+    if (button.dataset.moveUp || button.dataset.moveDown) {
+      const id = button.dataset.moveUp || button.dataset.moveDown, row = button.closest('tr[data-drag-id]'), rows = [...row.closest('tbody').querySelectorAll('tr[data-drag-id]')], index = rows.indexOf(row);
+      const target = rows[index + (button.dataset.moveUp ? -1 : 1)];
+      if (target) await reorderLedger(id, target.dataset.dragId);
+      return;
+    }
     if (button.dataset.calendarMove) { state.calendarMonth = shiftCalendarMonth(Number(button.dataset.calendarMove)); render(); return; }
     if (button.dataset.page) { if (button.dataset.page === 'side' && state.page !== 'side') state.calendarMonth = null; state.page = button.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     if (button.dataset.add) { openDelivery(button.dataset.add, button.dataset.platform || state.settings.defaultPlatform || '쿠팡이츠'); return; }
