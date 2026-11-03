@@ -46,7 +46,11 @@ export function mountChatbot(getContext) {
     if (!question || busy) return;
     busy = true; send.disabled = true; input.disabled = true;
     append('user', question); input.value = ''; suggestionBox.classList.add('compact');
-    try { append('assistant', answerQuestion(question, getContext()).text); }
+    try {
+      const response = answerQuestion(question, getContext()).text;
+      append('assistant', response);
+      if (response.includes('아직 해당 질문은 지원하지 않습니다.')) suggestionBox.classList.remove('compact');
+    }
     catch (error) { console.error(error); append('assistant', '데이터를 분석하지 못했습니다. 연결 상태를 확인한 뒤 다시 질문해 주세요.'); }
     finally { busy = false; send.disabled = false; input.disabled = false; input.focus(); }
   }

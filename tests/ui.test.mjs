@@ -130,6 +130,8 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
         await input.fill('<img src=x onerror=alert(1)>');
         await input.press('Enter');
         assert.equal(await page.locator('.mb-chat-messages img').count(), 0);
+        assert.equal(await page.locator('.mb-chat-suggestions').isVisible(), true);
+        assert.equal(await page.getByRole('button', { name: '이번 달 지출' }).isVisible(), true);
         for (let index = 0; index < 12; index++) { await input.fill('이번 달 지출'); await input.press('Enter'); }
         assert.equal(await page.locator('.mb-chat-messages').evaluate(element => element.scrollHeight > element.clientHeight && element.scrollTop > 0), true);
         assert.deepEqual(outgoing, []);
