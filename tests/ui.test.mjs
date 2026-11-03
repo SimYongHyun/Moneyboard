@@ -6,7 +6,7 @@ import { resolve, extname } from 'node:path';
 import { chromium } from 'playwright';
 
 const root = process.cwd();
-const mime = { '.html': 'text/html', '.js': 'text/javascript' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 const server = createServer(async (request, response) => {
   try {
     const path = resolve(root, '.' + (request.url === '/' ? '/index.html' : request.url));
@@ -94,6 +94,75 @@ test('A안 카드 순서와 다섯 화면 폭의 가로 맞춤', async () => {
       await page.screenshot({ path: `tools/ui-${width}.png`, fullPage: true });
       await context.close();
     }
+  } finally { await browser.close(); }
+});
+
+test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 모바일 배치', async () => {
+  const browser = await launchBrowser();
+  try {
+    for (const width of [375, 390, 430, 768, 1440]) {
+      const { context, page, errors } = await pageAt(browser, width);
+      const fab = page.getByRole('button', { name: '머니보드 비서 열기' });
+      await fab.waitFor();
+      assert.equal(await page.locator('#mb-chat-panel').isVisible(), false);
+      await fab.click();
+      const panel = page.locator('#mb-chat-panel');
+      assert.equal(await panel.isVisible(), true);
+      if (width === 375 || width === 1440) await page.screenshot({ path: `tools/ui-chat-${width}.png` });
+      const bounds = await panel.boundingBox(), buttonBounds = await page.locator('.mb-chat-fab').boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width, `채팅창 가로 위치 ${width}`);
+      assert.ok(bounds.y >= 0 && bounds.y + bounds.height < buttonBounds.y, `채팅창 세로 위치 ${width}`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      if (width === 375) {
+        const outgoing = [];
+        page.on('request', request => outgoing.push(request.url()));
+        await page.getByRole('button', { name: '이번 달 지출' }).click();
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+        await page.getByRole('button', { name: '부부 가계부' }).first().click();
+        assert.equal(await panel.isVisible(), true);
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+        const input = page.getByPlaceholder('궁금한 내용을 입력해 주세요.');
+        await input.fill('쿠팡 수익');
+        await input.press('Shift+Enter');
+        assert.match(await input.inputValue(), /\n/);
+        await input.press('Enter');
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /수익 기록이 없습니다/);
+        await input.fill('<img src=x onerror=alert(1)>');
+        await input.press('Enter');
+        assert.equal(await page.locator('.mb-chat-messages img').count(), 0);
+        for (let index = 0; index < 12; index++) { await input.fill('이번 달 지출'); await input.press('Enter'); }
+        assert.equal(await page.locator('.mb-chat-messages').evaluate(element => element.scrollHeight > element.clientHeight && element.scrollTop > 0), true);
+        assert.deepEqual(outgoing, []);
+        await page.getByRole('button', { name: '채팅 닫기' }).click();
+        assert.equal(await panel.isVisible(), false);
+        await page.getByRole('button', { name: '머니보드 비서 열기' }).click();
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+      }
+      if (width === 390) {
+        await page.setViewportSize({ width: 390, height: 500 });
+        const compactBounds = await panel.boundingBox();
+        assert.ok(compactBounds.y >= 0 && compactBounds.y + compactBounds.height <= 500, '낮은 모바일 화면 안에 채팅창 표시');
+      }
+      assert.deepEqual(errors, []);
+      await context.close();
+    }
+  } finally { await browser.close(); }
+});
+
+test('승인되지 않은 계정에서는 챗봇이 생성되지 않는다', async () => {
+  const browser = await launchBrowser();
+  try {
+    const context = await browser.newContext();
+    await context.route('**/firebase-config.js', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: `export const firebaseConfig={apiKey:'test',authDomain:'test.firebaseapp.com',projectId:'test',appId:'test'};` }));
+    await context.route('https://www.gstatic.com/firebasejs/13.1.0/firebase-*.js', route => {
+      const name = route.request().url().split('/').at(-1);
+      route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: name.includes('firebase-app') ? appModule : name.includes('firebase-auth') ? authModule.replace("uid:'test-y'", "uid:'outsider'") : firestoreModule });
+    });
+    const page = await context.newPage();
+    await page.goto(base);
+    await page.getByText('승인되지 않은 계정입니다.', { exact: false }).waitFor();
+    assert.equal(await page.locator('#moneyboard-chat').count(), 0);
+    await context.close();
   } finally { await browser.close(); }
 });
 

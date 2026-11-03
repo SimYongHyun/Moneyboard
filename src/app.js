@@ -11,7 +11,7 @@ const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: '
 const initialYear = Number(today.slice(0, 4));
 const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], auditLogs: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
 const collectionNames = { transactions: 'transactions', rules: 'recurringRules', auditLogs: 'auditLogs', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
-let auth, db, unsubs = [], busy = false, toastTimer;
+let auth, db, unsubs = [], busy = false, toastTimer, chatWidget, chatLoading;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const selectedMonth = () => monthKey(state.year, state.month);
 const displayedCalendarMonth = () => state.calendarMonth || selectedMonth();
@@ -62,6 +62,7 @@ function applyBranding() {
   });
 }
 function authScreen() {
+  chatWidget?.destroy(); chatWidget = null;
   const loading = state.status === 'loading';
   document.querySelector('.notice-right').textContent = state.status === 'setup' ? 'Firebase 설정 필요' : state.status === 'signedOut' ? '로그인 필요' : state.status === 'denied' ? '접근 불가' : loading ? '연결 상태 확인 중' : '연결 오류';
   root.innerHTML = `<div class="mock-app vA"><div class="app-shell side-shell"><aside class="sidebar"><div class="logo">◈ 머니보드</div><div class="side-footer"><b>우리집 공동 가계부</b>승인된 두 계정만 사용</div></aside><main class="app-main"><section class="card" style="max-width:510px;margin:12vh auto;width:100%;padding:29px"><span class="tag blue">우리집 머니보드</span><h2 style="margin:16px 0 9px">${loading ? '연결 중입니다' : state.status === 'signedOut' ? 'Google 계정으로 로그인' : '접근 상태 확인'}</h2><p class="sectionsub" style="font-size:12px">${escapeHtml(loading ? '인증 및 권한을 확인하고 있습니다.' : state.status === 'signedOut' ? '승인된 가족 계정으로 로그인하면 공동 가계부가 열립니다.' : accessMessage())}</p>${state.user ? `<p class="sectionsub">계정: ${escapeHtml(state.user.email || '')}<br>UID: ${escapeHtml(state.user.uid)}</p>` : ''}<div class="inline" style="margin-top:20px">${state.status === 'signedOut' ? '<button class="pill-btn primary" data-login>Google 로그인</button>' : ''}${state.user ? '<button class="pill-btn" data-logout>로그아웃</button>' : ''}</div></section></main></div></div>`;
@@ -241,6 +242,15 @@ function render() {
   const filter = root.querySelector('[data-filter]');
   if (filter) filter.value = state.filter;
   document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : '배달 부업'}`;
+  if (!chatWidget && !chatLoading) {
+    chatLoading = import('./chat-widget.js').then(({ mountChatbot }) => {
+      if (state.status === 'ready' && !chatWidget) chatWidget = mountChatbot(() => ({
+        status: state.status, year: state.year, month: state.month, offline: state.offline,
+        deliveryEnabled: hasDelivery(), transactions: state.transactions, rules: state.rules,
+        earnings: state.earnings, expenses: state.expenses, investments: state.investments
+      }));
+    }).catch(failure).finally(() => { chatLoading = null; });
+  }
 }
 function openDialog(title, subtitle, html) {
   document.getElementById('dialogTitle').textContent = title;
@@ -432,7 +442,7 @@ async function copyPreviousMonth() {
     }
     await batch.commit();
   }
-  await writeAudit('복사', '가계부 기록', `${previous} → ${selectedMonth()} · ${copied.length}건`);
+  await writeAudit('등록', '가계부 기록', `이전월 복사 ${previous} → ${selectedMonth()} · ${copied.length}건`);
   notify(`${previous} 거래 ${copied.length}건을 복사했습니다.`);
 }
 async function removeLedger(id) {

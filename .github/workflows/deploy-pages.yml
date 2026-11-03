@@ -58,7 +58,7 @@ jobs:
         run: |
           mkdir -p _site/src
           cp index.html firebase-config.js _site/
-          cp src/*.js _site/src/
+          cp src/*.js src/*.css _site/src/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/model.test.mjs tests/config.test.mjs",
+    "test": "node --test tests/model.test.mjs tests/config.test.mjs tests/chatbot.test.mjs",
     "test:ui": "node --test tests/ui.test.mjs",
     "test:rules": "firebase emulators:exec --project demo-moneyboard-rules-test --only firestore \"node --test tests/rules.test.mjs\"",
     "serve": "node scripts/serve.mjs",
