@@ -243,7 +243,7 @@ function render() {
   if (filter) filter.value = state.filter;
   document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : '배달 부업'}`;
   if (!chatWidget && !chatLoading) {
-    chatLoading = import('./chat-widget.js').then(({ mountChatbot }) => {
+    chatLoading = import('./chat-widget.js?v=20261103-2').then(({ mountChatbot }) => {
       if (state.status === 'ready' && !chatWidget) chatWidget = mountChatbot(() => ({
         status: state.status, year: state.year, month: state.month, offline: state.offline,
         deliveryEnabled: hasDelivery(), transactions: state.transactions, rules: state.rules,

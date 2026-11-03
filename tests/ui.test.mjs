@@ -9,7 +9,8 @@ const root = process.cwd();
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 const server = createServer(async (request, response) => {
   try {
-    const path = resolve(root, '.' + (request.url === '/' ? '/index.html' : request.url));
+    const requestPath = new URL(request.url, 'http://127.0.0.1').pathname;
+    const path = resolve(root, '.' + (requestPath === '/' ? '/index.html' : requestPath));
     if (!path.startsWith(root)) { response.writeHead(403).end(); return; }
     const body = await readFile(path);
     response.writeHead(200, { 'content-type': `${mime[extname(path)] || 'text/plain'}; charset=utf-8` }).end(body);
