@@ -1,0 +1,15 @@
+node_modules/
+tools/
+public/
+.cache/
+.firebase/
+.env*
+private-data/
+previews/
+CODEX_DEV_GUIDE.md
+README_FIRST.md
+*.backup.json
+*.private.json
+*.log
+Thumbs.db
+.DS_Store
