@@ -114,7 +114,7 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByText('새 지출').waitFor();
     await page.screenshot({ path: 'tools/ui-ledger-1440.png', fullPage: true });
     await page.screenshot({ path: 'tools/ui-ledger-viewport.png' });
-    await page.getByRole('button', { name: '배달 부업' }).first().click();
+    await page.getByRole('button', { name: '부업' }).first().click();
     assert.match(await page.locator('[data-add="income"]').first().evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     assert.match(await page.locator('[data-add="investment"]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     await page.getByRole('button', { name: /쿠팡이츠 배달 수익/ }).click();
