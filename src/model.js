@@ -20,8 +20,6 @@ export function validateDelivery(record) {
   if (record.kind === 'income') {
     if (!['쿠팡이츠', '배민커넥트'].includes(record.platform)) throw Error('플랫폼을 선택하세요.');
     integer(record.grossIncome, '수입');
-    integer(record.settlementDeduction, '공제액');
-    if (record.settlementDeduction > record.grossIncome) throw Error('공제액이 수입을 초과합니다.');
     integer(record.deliveryCount, '배달 건수');
     if (record.deliveryCount > 1000000) throw Error('배달 건수를 확인하세요.');
     for (const key of ['workHours', 'distanceKm']) if (!Number.isFinite(record[key]) || record[key] < 0 || record[key] > 1000000) throw Error('시간과 거리를 확인하세요.');
@@ -37,8 +35,8 @@ export function deliveryTotals(earnings, expenses, untilMonth, exactMonth = fals
   const fits = r => exactMonth ? monthOf(r.workDate) === untilMonth : monthOf(r.workDate) <= untilMonth;
   const included = earnings.filter(fits), costs = expenses.filter(fits);
   const gross = included.reduce((a, r) => a + r.grossIncome, 0);
-  const deductions = included.reduce((a, r) => a + r.settlementDeduction, 0);
-  const payout = gross - deductions;
+  const deductions = 0;
+  const payout = gross;
   const operating = costs.reduce((a, r) => a + r.amount, 0);
   return { gross, deductions, payout, expenses: operating, net: payout - operating,
     deliveries: included.reduce((a, r) => a + r.deliveryCount, 0),

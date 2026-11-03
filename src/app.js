@@ -47,6 +47,7 @@ function subscribe(key, path) {
   const unsubscribe = onSnapshot(query(collection(db, ...path), limit(5000)), { includeMetadataChanges: true }, snapshot => {
     if (snapshot.docs.length >= 5000) { state.status = 'error'; state.error = `${key} 기록이 5,000건에 도달했습니다. 백업 후 데이터 범위를 나누어야 합니다.`; authScreen(); return; }
     state[key] = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+    if (key === 'earnings') state[key] = state[key].map(record => ({ ...record, settlementDeduction: 0 }));
     state.loaded[key] = true;
     state.offline = snapshot.metadata.fromCache;
     if (Object.values(state.loaded).every(Boolean)) { state.status = 'ready'; render(); }
@@ -187,16 +188,26 @@ function side() {
   const vehicle = state.investments.filter(i => i.category === '차량' && (!i.workDate || monthOf(i.workDate) <= selectedMonth())).reduce((a, i) => a + i.amount, 0);
   return shell(`${heading('배달 부업 수익 관리', '배민커넥트 · 쿠팡이츠 수익을 배달일 기준으로 월별 정산하고 투자금을 회수합니다.')}<div class="side-hero"><section class="initial-invest"><span class="tag blue">투자금 회수 프로젝트</span><div class="sectionsub" style="margin-top:10px">오토바이·장비 초기 투자비</div><div class="counter mono">${money(r.capital)}</div><div class="stat-caption">오토바이 ${money(vehicle)} + 장비 및 비품 ${money(r.capital - vehicle)}</div><div class="meta-items"><span class="tag">구매 항목 ${state.investments.length}개</span><span class="tag">플랫폼 2곳</span></div></section><section class="surface side-roadmap"><div class="section-heading"><h3>투자금 회수 로드맵</h3><span class="tag ${r.completed ? 'green' : 'orange'}">${r.completed ? '전액 회수 완료' : '회수 진행 중'}</span></div><div class="micro">${selectedMonth()}까지 누적 순현금수익 / 투자금</div><div class="counter mono">${r.percent.toFixed(1)}%</div><div class="status-track"><span style="width:${r.percent}%"></span></div><div class="between"><span class="micro">남은 투자금</span><b class="mono">${money(r.remaining)}</b></div><div class="sectionsub" style="margin-top:12px">누적 수익 ${money(cumulative.payout)} − 누적 운영비 ${money(cumulative.expenses)} = ${money(cumulative.net)} · 투자금 차감 손익 ${money(r.profit)}</div></section></div><div class="side-metrics"><div><div class="micro">이번 달 실정산액</div><b class="mono">${money(monthly.payout)}</b><div class="micro">공제 전 ${money(monthly.gross)}</div></div><div><div class="micro">이번 달 운영비</div><b class="mono">${money(monthly.expenses)}</b><div class="micro">주유·정비 등</div></div><div><div class="micro">이번 달 순현금수익</div><b class="mono ${monthly.net >= 0 ? 'plus' : 'minus'}">${money(monthly.net)}</b><div class="micro">실정산액 − 운영비</div></div><div><div class="micro">배달 실적</div><b class="mono">${monthly.deliveries}건</b><div class="micro">${monthly.hours.toFixed(1)}시간 · ${monthly.distance.toFixed(1)}km</div></div></div>${insight(monthly, r)}<div class="side-analytics">${monthlyChart()}${investmentDonut()}</div><div class="side-bottom">${platforms()}<section class="card"><div class="section-heading"><h3>수익 및 운영비 빠른 등록</h3><span class="tag blue">날짜 지정 가능</span></div><div class="record-actions"><button data-add="income" data-platform="쿠팡이츠">쿠팡이츠 배달 수익 <b>+ 기록</b></button><button data-add="income" data-platform="배민커넥트">배민커넥트 배달 수익 <b>+ 기록</b></button><button data-add="expense">주유·정비·보험료 등 <b>+ 기록</b></button></div><div class="note" style="margin-top:14px">정산에서 공제된 보험료 등은 운영비로 중복 등록하지 마세요.</div></section></div>${recordList()}${deliveryCalendar()}`);
 }
-function render() { if (state.status !== 'ready') { authScreen(); return; } document.querySelector('.notice-right').textContent = state.offline ? '오프라인 캐시' : 'Firebase 실시간 동기화'; root.innerHTML = { home, ledger, side }[state.page](); const filter = root.querySelector('[data-filter]'); if (filter) filter.value = state.filter; document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : '배달 부업'}`; }
+function render() {
+  if (state.status !== 'ready') { authScreen(); return; }
+  document.querySelector('.notice-right').textContent = state.offline ? '오프라인 캐시' : 'Firebase 실시간 동기화';
+  root.innerHTML = { home, ledger, side }[state.page]();
+  root.querySelectorAll('.business-mini .micro small, .side-metrics > div:first-child .micro:last-child').forEach(element => element.remove());
+  const filter = root.querySelector('[data-filter]');
+  if (filter) filter.value = state.filter;
+  document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : '배달 부업'}`;
+}
 function openDialog(title, subtitle, html) {
   document.getElementById('dialogTitle').textContent = title;
   document.getElementById('dialogSubtitle').textContent = subtitle;
   formContainer.innerHTML = html;
+  formContainer.querySelector('#calcPreview')?.previousElementSibling && (formContainer.querySelector('#calcPreview').previousElementSibling.textContent = '등록 수입');
   dialog.classList.add('open'); dialog.setAttribute('aria-hidden', 'false'); document.body.classList.add('modal-open');
-  formContainer.querySelector('input,select,button')?.focus();
+  formContainer.querySelector('input:not([type="hidden"]),select,button')?.focus();
 }
 function closeDialog() { dialog.classList.remove('open'); dialog.setAttribute('aria-hidden', 'true'); document.body.classList.remove('modal-open'); formContainer.innerHTML = ''; }
 function field(label, name, value = '', options = {}) {
+  if (name === 'settlementDeduction') return '<input name="settlementDeduction" type="hidden" value="0">';
   const { type = 'text', required = false, min, step, maxLength = 150, currency = false } = options;
   const displayValue = currency ? currencyInput(value) : value;
   return `<div class="form-field"><label for="field-${name}">${label}${required ? ' <span class="required">*</span>' : ''}</label><input id="field-${name}" name="${name}" type="${currency ? 'text' : type}" value="${escapeHtml(displayValue)}" ${currency ? 'data-currency inputmode="numeric" autocomplete="off"' : ''} ${required ? 'required' : ''} ${min !== undefined && !currency ? `min="${min}"` : ''} ${step !== undefined && !currency ? `step="${step}"` : ''} maxlength="${maxLength}"></div>`;
