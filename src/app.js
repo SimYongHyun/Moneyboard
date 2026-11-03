@@ -240,6 +240,7 @@ function closeDialog() { dialog.classList.remove('open'); dialog.setAttribute('a
 function field(label, name, value = '', options = {}) {
   if (name === 'settlementDeduction') return '<input name="settlementDeduction" type="hidden" value="0">';
   const { type = 'text', required = false, min, step, maxLength = 150, currency = false } = options;
+  if (name === 'memo') return `<div class="form-field"><label for="field-${name}">${label}${required ? ' <span class="required">*</span>' : ''}</label><textarea id="field-${name}" name="${name}" rows="3" maxlength="${maxLength}" placeholder="카드값 상세 내역을 여러 줄로 입력할 수 있습니다.">${escapeHtml(value)}</textarea></div>`;
   const displayValue = currency ? currencyInput(value) : value;
   return `<div class="form-field"><label for="field-${name}">${label}${required ? ' <span class="required">*</span>' : ''}</label><input id="field-${name}" name="${name}" type="${currency ? 'text' : type}" value="${escapeHtml(displayValue)}" ${currency ? 'data-currency inputmode="numeric" autocomplete="off"' : ''} ${required ? 'required' : ''} ${min !== undefined && !currency ? `min="${min}"` : ''} ${step !== undefined && !currency ? `step="${step}"` : ''} maxlength="${maxLength}"></div>`;
 }
