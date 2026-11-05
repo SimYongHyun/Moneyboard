@@ -160,6 +160,7 @@ test('카드 상세 내역은 가계부와 별도로 등록하고 카테고리�
     assert.deepEqual(await page.locator('.side-nav .navtext').allTextContents(), ['홈', '부부 가계부', '카드 상세 내역', '부업']);
     await page.getByRole('button', { name: '카드 상세 내역' }).first().click();
     await page.getByRole('heading', { name: '카드 상세 내역' }).waitFor();
+    assert.match((await page.locator('.card-picker').innerText()), /생활비 카드\s*·\s*공용/);
     assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*0원/);
     await page.getByRole('button', { name: '+ 상세 지출 등록' }).click();
     await page.locator('#cardDetailForm [name=date]').fill('2026-11-05');

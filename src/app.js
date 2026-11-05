@@ -176,9 +176,11 @@ function ledger() {
 const cardCatalog = [
   { key: 'shinhan-y', name: '신한카드', person: 'y' },
   { key: 'hyundai-y', name: '현대카드', person: 'y' },
-  { key: 'samsung-s', name: '삼성카드', person: 's' }
+  { key: 'samsung-s', name: '삼성카드', person: 's' },
+  { key: 'living-common', name: '생활비 카드', person: 'common' }
 ];
-const personName = key => key === 's' ? '선영' : '용현';
+const personName = key => key === 's' ? '선영' : key === 'common' ? '공용' : '용현';
+const cardLabel = card => card.person === 'common' ? `${card.name} (공용)` : `${card.name} · ${personName(card.person)}`;
 const activeCard = () => cardCatalog.find(card => card.key === state.cardKey) || cardCatalog[0];
 const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && monthOf(record.date) === selectedMonth()).sort((a, b) => b.date.localeCompare(a.date));
 function cardDetails() {
@@ -309,7 +311,7 @@ function openLedger(record = null, recurring = false) {
 function openCardDetail(record = null) {
   const card = record ? cardCatalog.find(item => item.key === record.cardKey) : activeCard();
   const r = record || {}, date = r.date || (selectedMonth() === monthOf(today) ? today : `${selectedMonth()}-01`);
-  openDialog(r.id ? '카드 상세 지출 수정' : '카드 상세 지출 등록', `${card.name} · ${personName(card.person)} 카드별 별도 지출을 직접 등록합니다.`, `<form id="cardDetailForm" data-id="${escapeHtml(r.id || '')}"><div class="hintbox"><b>${card.name} · ${personName(card.person)}</b><br>이 메뉴는 부부 가계부와 별도로 관리됩니다.</div>${field('사용일', 'date', date, { type: 'date', required: true })}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('카테고리', 'category', r.category || '', { required: true, maxLength: 80 })}${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}</div>${field('메모', 'memo', r.memo || '', { maxLength: 150 })}${buttons(!!r.id)}</form>`);
+  openDialog(r.id ? '카드 상세 지출 수정' : '카드 상세 지출 등록', `${cardLabel(card)} 카드별 별도 지출을 직접 등록합니다.`, `<form id="cardDetailForm" data-id="${escapeHtml(r.id || '')}"><div class="hintbox"><b>${cardLabel(card)}</b><br>이 메뉴는 부부 가계부와 별도로 관리됩니다.</div>${field('사용일', 'date', date, { type: 'date', required: true })}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('카테고리', 'category', r.category || '', { required: true, maxLength: 80 })}${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}</div>${field('메모', 'memo', r.memo || '', { maxLength: 150 })}${buttons(!!r.id)}</form>`);
 }
 async function saveCardDetail(form) {
   const id = form.dataset.id, card = activeCard();
@@ -321,7 +323,7 @@ async function saveCardDetail(form) {
   const ref = id ? doc(db, 'households', state.access.householdId, 'cardDetails', id) : doc(collection(db, 'households', state.access.householdId, 'cardDetails'));
   if (id) await updateDoc(ref, { ...record, updatedAt: serverTimestamp() });
   else await setDoc(ref, { ...record, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  await writeAudit(id ? '수정' : '등록', '카드 상세 내역', `${card.name} · ${personName(card.person)} · ${record.title} · ${money(record.amount)}`);
+  await writeAudit(id ? '수정' : '등록', '카드 상세 내역', `${cardLabel(card)} · ${record.title} · ${money(record.amount)}`);
   state.year = Number(record.date.slice(0, 4)); state.month = Number(record.date.slice(5, 7)); state.page = 'cards';
   closeDialog(); render(); notify('카드 상세 지출을 저장했습니다.');
 }

@@ -69,6 +69,7 @@ test('카드 상세 내역은 승인된 부부만 공동으로 관리하며 카�
   const s = environment.authenticatedContext('s').firestore();
   const outsider = environment.authenticatedContext('outsider').firestore();
   await assertSucceeds(setDoc(doc(y, cardDetailPath('case')), cardDetail()));
+  await assertSucceeds(setDoc(doc(s, cardDetailPath('common')), { ...cardDetail(), cardKey: 'living-common', cardName: '생활비 카드', person: 'common' }));
   await assertSucceeds(getDoc(doc(s, cardDetailPath('case'))));
   await assertSucceeds(updateDoc(doc(s, cardDetailPath('case')), { category: '선물', updatedAt: serverTimestamp() }));
   await assertFails(setDoc(doc(y, cardDetailPath('wrong-card')), { ...cardDetail(), cardName: '현대카드' }));
