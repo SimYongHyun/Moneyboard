@@ -153,14 +153,14 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
   } finally { await browser.close(); }
 });
 
-test('카드 상세 내역은 카드 총액과 중복 합산하지 않고 카테고리별로 표시한다', async () => {
+test('카드 상세 내역은 가계부와 별도로 등록하고 카테고리별로 표시한다', async () => {
   const browser = await launchBrowser();
   try {
     const { context, page, errors } = await pageAt(browser, 1440);
     assert.deepEqual(await page.locator('.side-nav .navtext').allTextContents(), ['홈', '부부 가계부', '카드 상세 내역', '부업']);
     await page.getByRole('button', { name: '카드 상세 내역' }).first().click();
     await page.getByRole('heading', { name: '카드 상세 내역' }).waitFor();
-    assert.match(await page.locator('.card-detail-summary').innerText(), /카드 총액\s*0원/);
+    assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*0원/);
     await page.getByRole('button', { name: '+ 상세 지출 등록' }).click();
     await page.locator('#cardDetailForm [name=date]').fill('2026-11-05');
     await page.locator('#cardDetailForm [name=title]').fill('테스트 휴대폰 케이스');
@@ -169,7 +169,7 @@ test('카드 상세 내역은 카드 총액과 중복 합산하지 않고 카테
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('테스트 휴대폰 케이스').waitFor();
     assert.match(await page.locator('.card-category-chart').innerText(), /생활용품[\s\S]*22,300원/);
-    assert.match(await page.locator('.card-detail-summary').innerText(), /세부 내역 합계\s*22,300원/);
+    assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*22,300원/);
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
     assert.equal(await page.getByText('테스트 휴대폰 케이스').count(), 0);
     assert.deepEqual(errors, []);
