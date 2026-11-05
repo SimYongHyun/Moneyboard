@@ -1,6 +1,6 @@
-import { answerQuestion } from './chatbot.js?v=20261105-3';
+import { answerQuestion } from './chatbot.js?v=20261105-4';
 
-const suggestions = ['이번 달 지출', '이번 달 남은 돈', '미납 예정 금액', '쿠팡이츠 수익', '배민커넥트 수익', '투자금 회수율'];
+const suggestions = ['이번 달 지출', '이번 달 주유비', '미납 예정 금액', '쿠팡이츠 수익', '배민커넥트 수익', '투자금 회수율'];
 
 export function mountChatbot(getContext) {
   const host = document.createElement('aside');

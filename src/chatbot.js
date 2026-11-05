@@ -55,6 +55,19 @@ const deliveryRows = (context, period) => ({
   earnings: context.earnings.filter(record => inPeriod(record.workDate, period)),
   expenses: context.expenses.filter(record => inPeriod(record.workDate, period))
 });
+const cardInstallmentElapsed = (record, key) => {
+  const [startYear, startMonth] = record.date.slice(0, 7).split('-').map(Number), [year, month] = key.split('-').map(Number);
+  return (year - startYear) * 12 + month - startMonth;
+};
+const cardInstallmentActive = (record, key) => record.paymentType === 'installment' && record.installmentMonths > 0 && cardInstallmentElapsed(record, key) >= 0 && cardInstallmentElapsed(record, key) < record.installmentMonths;
+const cardMonthlyAmount = (record, key) => {
+  if (!cardInstallmentActive(record, key)) return record.amount;
+  const elapsed = cardInstallmentElapsed(record, key), regular = Math.round(record.amount / record.installmentMonths);
+  return elapsed === record.installmentMonths - 1 ? record.amount - regular * (record.installmentMonths - 1) : regular;
+};
+const cardDetailRows = (context, period) => monthKeys(period).flatMap(key => (context.cardDetails || []).filter(record => monthOf(record.date) === key || cardInstallmentActive(record, key)).map(record => ({ ...record, amount: cardMonthlyAmount(record, key), month: key })));
+const cardDetailTerms = ['주유', '기름', '교통', '차량', '식비', '장보기', '주거', '관리비', '통신', '구독', '쇼핑', '의료', '건강', '미용', '문화', '여가', '여행', '숙박', '경조사', '선물', '보험', '금융', '교육', '자기계발', '반려동물'];
+const cardOwner = person => person === 's' ? '선영' : person === 'common' ? '공용' : '용현';
 const monthSeries = (period, get) => monthKeys(period).map(key => ({ key, ...get(monthRange(key)) }));
 const seriesText = (series, field) => series.map(row => `${Number(row.key.slice(5))}월 ${won(row[field])}`).join(' · ');
 const bestMonth = (series, field) => series.reduce((best, row) => row[field] > (best?.[field] ?? -Infinity) ? row : best, null);
@@ -75,8 +88,32 @@ export function answerQuestion(question, context, now = seoulDate()) {
   if (period.error) return answer(period.error);
   const delivery = /배달|부업|쿠팡이츠|배민커넥트|플랫폼|운영비|투자금|오토바이|회수|정산|수익|순현금|주행|초기 비용/.test(q);
   if (delivery && !context.deliveryEnabled) return answer('공동 부업 장부 접근 권한이 없습니다.');
-  const result = delivery ? deliveryAnswer(q, context, period, now) : householdAnswer(q, context, period);
+  const cardResult = delivery ? null : cardDetailAnswer(q, context, period);
+  const result = delivery ? deliveryAnswer(q, context, period, now) : cardResult || householdAnswer(q, context, period);
   return context.offline ? answer(`${result.text}\n오프라인 캐시 기준이며 최신 기록이 아닐 수 있습니다.`) : result;
+}
+
+function cardDetailAnswer(q, context, period) {
+  const cards = context.cardDetails || [];
+  if (!cards.length) return null;
+  const terms = cardDetailTerms.filter(term => q.includes(term));
+  const cardNames = cards.map(record => record.cardName).filter(Boolean);
+  const explicit = /할부|일시불|카드\s*상세|상세.*지출/.test(q) || cardNames.some(name => q.includes(name.replace('카드', '')));
+  const intent = explicit || terms.length > 0;
+  if (!intent) return null;
+  const allRows = cardDetailRows(context, period);
+  const rows = terms.length ? allRows.filter(record => terms.some(term => [record.title, record.category, record.memo, record.cardName].join(' ').includes(term))) : allRows;
+  const detail = terms.length ? terms.join('·') : '카드 상세 지출';
+  if (!rows.length) return explicit ? answer(`${period.label} 카드 상세 내역에 ${detail} 기록이 없습니다.`) : null;
+  const total = rows.reduce((sum, record) => sum + record.amount, 0);
+  const byCard = Object.values(rows.reduce((all, record) => {
+    const label = `${record.cardName || '카드'} · ${cardOwner(record.person)}`;
+    all[label] = all[label] || { label, amount: 0, count: 0 };
+    all[label].amount += record.amount; all[label].count += 1;
+    return all;
+  }, {}));
+  const label = terms.length === 1 ? `${terms[0]} 관련 지출` : detail;
+  return answer(`${period.label} 카드 상세 내역 기준 ${label}은 ${won(total)}입니다.\n${byCard.map(item => `${item.label} ${won(item.amount)} · ${item.count}건`).join('\n')}`);
 }
 
 function householdAnswer(q, context, period) {

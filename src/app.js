@@ -274,10 +274,10 @@ function render() {
   if (filter) filter.value = state.filter;
   document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : state.page === 'cards' ? '카드 상세 내역' : '부업'}`;
   if (!chatWidget && !chatLoading) {
-    chatLoading = import('./chat-widget.js?v=20261105-3').then(({ mountChatbot }) => {
+    chatLoading = import('./chat-widget.js?v=20261105-4').then(({ mountChatbot }) => {
       if (state.status === 'ready' && !chatWidget) chatWidget = mountChatbot(() => ({
         status: state.status, year: state.year, month: state.month, offline: state.offline,
-        deliveryEnabled: hasDelivery(), transactions: state.transactions, rules: state.rules,
+        deliveryEnabled: hasDelivery(), transactions: state.transactions, rules: state.rules, cardDetails: state.cardDetails,
         earnings: state.earnings, expenses: state.expenses, investments: state.investments
       }));
     }).catch(failure).finally(() => { chatLoading = null; });

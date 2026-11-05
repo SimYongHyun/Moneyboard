@@ -15,6 +15,10 @@ const context = {
     { id: 'old-expense', date: '2026-10-02', person: 'y', type: 'expense', amount: 1100000, paid: true, title: '생활비' }
   ],
   rules: [{ id: 'rent', person: 'y', type: 'expense', title: '월세', amount: 400000, category: '주거', startMonth: '2026-11', endMonth: '', day: 2, installments: 0 }],
+  cardDetails: [
+    { id: 'fuel', cardName: '신한카드', person: 'y', date: '2026-11-05', title: '주유비', category: '교통·차량', amount: 50000, paymentType: 'single', installmentMonths: 0, memo: '' },
+    { id: 'repair', cardName: '신한카드', person: 'y', date: '2026-11-05', title: '차량 수리비', category: '교통·차량', amount: 200000, paymentType: 'installment', installmentMonths: 3, memo: '' }
+  ],
   earnings: [
     { workDate: '2026-10-12', platform: '쿠팡이츠', grossIncome: 200000, deliveryCount: 8, workHours: 10, distanceKm: 100 },
     { workDate: '2026-11-02', platform: '쿠팡이츠', grossIncome: 100000, deliveryCount: 3, workHours: 4, distanceKm: 30 },
@@ -58,6 +62,13 @@ test('가계부 금액은 화면의 반복 예정 및 납부 상태 계산과 �
   assert.match(ask('최근 3개월 지출 추이'), /10월 1,100,000원/);
   assert.match(ask('지출이 가장 많았던 달'), /11월이며 1,400,000원/);
   assert.match(ask('월별 지출 비교'), /11월 1,400,000원/);
+});
+
+test('카드 상세 내역과 할부 월 납입금을 선택 기간 기준으로 조회한다', () => {
+  assert.match(ask('이번 달 주유비 얼마야'), /카드 상세 내역 기준 주유 관련 지출은 50,000원/);
+  assert.match(ask('이번 달 카드 상세 지출'), /116,667원/);
+  assert.match(ask('2026년 12월 교통비'), /66,667원/);
+  assert.match(ask('이번 달 카드 상세 쇼핑 지출'), /기록이 없습니다/);
 });
 
 test('부업 발생일, 플랫폼, 운영비와 기존 회수율 계산을 따른다', () => {
