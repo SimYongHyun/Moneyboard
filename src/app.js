@@ -179,10 +179,18 @@ const cardCatalog = [
   { key: 'samsung-s', name: '삼성카드', person: 's' },
   { key: 'living-common', name: '생활비 카드', person: 'common' }
 ];
+const cardCategories = ['식비', '장보기', '주거·관리비', '통신·구독', '교통·차량', '쇼핑', '의료·건강', '미용·관리', '문화·여가', '여행·숙박', '경조사·선물', '보험·금융', '교육·자기계발', '반려동물', '기타'];
 const personName = key => key === 's' ? '선영' : key === 'common' ? '공용' : '용현';
 const cardLabel = card => card.person === 'common' ? `${card.name} (공용)` : `${card.name} · ${personName(card.person)}`;
 const activeCard = () => cardCatalog.find(card => card.key === state.cardKey) || cardCatalog[0];
-const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && monthOf(record.date) === selectedMonth()).sort((a, b) => b.date.localeCompare(a.date));
+const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && monthOf(record.date) === selectedMonth()).sort((a, b) => b.date.localeCompare(a.date)).map(record => ({ ...record, memo: [record.memo, installmentLabel(record)].filter(Boolean).join(' · ') }));
+function installmentLabel(record) {
+  if (record.paymentType !== 'installment' || !record.installmentMonths) return '일시불';
+  const [startYear, startMonth] = record.date.slice(0, 7).split('-').map(Number);
+  const elapsed = Math.max(0, (state.year - startYear) * 12 + state.month - startMonth);
+  const remaining = Math.max(0, record.installmentMonths - elapsed - 1);
+  return remaining ? `할부 ${record.installmentMonths}개월 · 남은 ${remaining}개월` : `할부 ${record.installmentMonths}개월 · 완납`;
+}
 function cardDetails() {
   const active = activeCard(), rows = cardRows(active), total = rows.reduce((sum, row) => sum + row.amount, 0);
   const categories = Object.entries(rows.reduce((all, row) => { const category = row.category || '미분류'; all[category] = (all[category] || 0) + row.amount; return all; }, {})).sort((a, b) => b[1] - a[1]);
@@ -311,14 +319,18 @@ function openLedger(record = null, recurring = false) {
 function openCardDetail(record = null) {
   const card = record ? cardCatalog.find(item => item.key === record.cardKey) : activeCard();
   const r = record || {}, date = r.date || (selectedMonth() === monthOf(today) ? today : `${selectedMonth()}-01`);
-  openDialog(r.id ? '카드 상세 지출 수정' : '카드 상세 지출 등록', `${cardLabel(card)} 카드별 별도 지출을 직접 등록합니다.`, `<form id="cardDetailForm" data-id="${escapeHtml(r.id || '')}"><div class="hintbox"><b>${cardLabel(card)}</b><br>이 메뉴는 부부 가계부와 별도로 관리됩니다.</div>${field('사용일', 'date', date, { type: 'date', required: true })}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('카테고리', 'category', r.category || '', { required: true, maxLength: 80 })}${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}</div>${field('메모', 'memo', r.memo || '', { maxLength: 150 })}${buttons(!!r.id)}</form>`);
+  const paymentType = r.paymentType || 'single', installmentMonths = r.installmentMonths || '';
+  openDialog(r.id ? '카드 상세 지출 수정' : '카드 상세 지출 등록', `${cardLabel(card)} 카드별 별도 지출을 직접 등록합니다.`, `<form id="cardDetailForm" data-id="${escapeHtml(r.id || '')}"><div class="hintbox"><b>${cardLabel(card)}</b><br>이 메뉴는 부부 가계부와 별도로 관리됩니다.</div>${field('사용일', 'date', date, { type: 'date', required: true })}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${choice('카테고리', 'category', cardCategories.map(category => [category, category]), r.category || '식비')}${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}</div><div class="form-row">${choice('결제 방식', 'paymentType', [['single', '일시불'], ['installment', '할부']], paymentType)}<div class="form-field" data-installment-field ${paymentType === 'installment' ? '' : 'hidden'}><label for="field-installmentMonths">할부 개월 <span class="required">*</span></label><input id="field-installmentMonths" name="installmentMonths" type="number" min="2" max="60" step="1" value="${escapeHtml(installmentMonths)}" ${paymentType === 'installment' ? 'required' : ''}></div></div>${field('메모', 'memo', r.memo || '', { maxLength: 150 })}${buttons(!!r.id)}</form>`);
 }
 async function saveCardDetail(form) {
   const id = form.dataset.id, card = activeCard();
-  const record = { cardKey: card.key, cardName: card.name, person: card.person, date: form.elements.date.value, title: form.elements.title.value.trim(), category: form.elements.category.value.trim(), amount: integer(form.elements.amount.value), memo: form.elements.memo.value.trim() };
+  const paymentType = form.elements.paymentType.value;
+  const record = { cardKey: card.key, cardName: card.name, person: card.person, date: form.elements.date.value, title: form.elements.title.value.trim(), category: form.elements.category.value, paymentType, installmentMonths: paymentType === 'installment' ? integer(form.elements.installmentMonths.value, '할부 개월') : 0, amount: integer(form.elements.amount.value), memo: form.elements.memo.value.trim() };
   if (!validDate(record.date)) throw Error('사용일을 확인하세요.');
   if (!record.title || record.title.length > 100) throw Error('항목 이름을 확인하세요.');
   if (!record.category || record.category.length > 80) throw Error('카테고리를 입력해 주세요.');
+  if (record.paymentType !== 'single' && record.paymentType !== 'installment') throw Error('결제 방식을 선택하세요.');
+  if (record.paymentType === 'installment' && (record.installmentMonths < 2 || record.installmentMonths > 60)) throw Error('할부 개월은 2~60개월로 입력하세요.');
   if (record.memo.length > 150) throw Error('메모는 150자 이내로 입력하세요.');
   const ref = id ? doc(db, 'households', state.access.householdId, 'cardDetails', id) : doc(collection(db, 'households', state.access.householdId, 'cardDetails'));
   if (id) await updateDoc(ref, { ...record, updatedAt: serverTimestamp() });
@@ -603,6 +615,12 @@ document.addEventListener('change', event => {
   if (event.target.hasAttribute('data-year')) { state.year = Number(event.target.value); state.calendarMonth = null; render(); }
   if (event.target.hasAttribute('data-month')) { state.month = Number(event.target.value); state.calendarMonth = null; render(); }
   if (event.target.hasAttribute('data-filter')) { state.filter = event.target.value; render(); }
+  if (event.target.name === 'paymentType' && event.target.closest('#cardDetailForm')) {
+    const field = event.target.closest('form').querySelector('[data-installment-field]');
+    const input = field.querySelector('[name=installmentMonths]'), isInstallment = event.target.value === 'installment';
+    field.hidden = !isInstallment; input.required = isInstallment;
+    if (!isInstallment) input.value = '';
+  }
 });
 document.addEventListener('input', event => {
   if (event.target.matches('input[data-currency]')) {

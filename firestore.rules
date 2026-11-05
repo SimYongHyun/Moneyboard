@@ -43,10 +43,11 @@ service cloud.firestore {
     }
     function cardDetail(d) {
       return d.keys().hasAll(['cardKey','cardName','person','date','title','category','amount','memo','createdAt','updatedAt'])
-        && d.keys().hasOnly(['cardKey','cardName','person','date','title','category','amount','memo','createdAt','updatedAt'])
+        && d.keys().hasOnly(['cardKey','cardName','person','date','title','category','paymentType','installmentMonths','amount','memo','createdAt','updatedAt'])
         && d.cardKey in ['shinhan-y','hyundai-y','samsung-s','living-common']
         && ((d.cardKey == 'shinhan-y' && d.cardName == '신한카드' && d.person == 'y') || (d.cardKey == 'hyundai-y' && d.cardName == '현대카드' && d.person == 'y') || (d.cardKey == 'samsung-s' && d.cardName == '삼성카드' && d.person == 's') || (d.cardKey == 'living-common' && d.cardName == '생활비 카드' && d.person == 'common'))
         && date(d.date) && text(d.title,100) && d.title.size() > 0 && text(d.category,80) && d.category.size() > 0
+        && (!d.keys().hasAll(['paymentType','installmentMonths']) || (d.paymentType in ['single','installment'] && d.installmentMonths is int && ((d.paymentType == 'single' && d.installmentMonths == 0) || (d.paymentType == 'installment' && d.installmentMonths >= 2 && d.installmentMonths <= 60))))
         && money(d.amount) && text(d.memo,150) && stamps(d);
     }
     function audit(d) {

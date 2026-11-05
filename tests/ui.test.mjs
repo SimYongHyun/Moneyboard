@@ -165,11 +165,14 @@ test('카드 상세 내역은 가계부와 별도로 등록하고 카테고리�
     await page.getByRole('button', { name: '+ 상세 지출 등록' }).click();
     await page.locator('#cardDetailForm [name=date]').fill('2026-11-05');
     await page.locator('#cardDetailForm [name=title]').fill('테스트 휴대폰 케이스');
-    await page.locator('#cardDetailForm [name=category]').fill('생활용품');
+    await page.locator('#cardDetailForm [name=category]').selectOption('쇼핑');
+    await page.locator('#cardDetailForm [name=paymentType]').selectOption('installment');
+    await page.locator('#cardDetailForm [name=installmentMonths]').fill('6');
     await page.locator('#cardDetailForm [name=amount]').fill('22300');
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('테스트 휴대폰 케이스').waitFor();
-    assert.match(await page.locator('.card-category-chart').innerText(), /생활용품[\s\S]*22,300원/);
+    assert.match(await page.locator('.card-category-chart').innerText(), /쇼핑[\s\S]*22,300원/);
+    assert.match(await page.locator('.card-detail-grid').innerText(), /할부 6개월 · 남은 5개월/);
     assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*22,300원/);
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
     assert.equal(await page.getByText('테스트 휴대폰 케이스').count(), 0);

@@ -22,7 +22,7 @@ await environment.withSecurityRulesDisabled(async context => {
 const transaction = () => ({ person: 'y', type: 'expense', title: '테스트', amount: 100, date: '2026-11-02', category: '식비', paymentMethod: '카드', account: '', memo: '', paid: false, paidDate: '', recurringRuleId: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 const earning = () => ({ ownerUid: 'y', kind: 'income', platform: '쿠팡이츠', workDate: '2026-11-02', workMonth: '2026-11', grossIncome: 1000, settlementDeduction: 100, deliveryCount: 1, workHours: 1, distanceKm: 5, memo: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 const audit = uid => ({ actorUid: uid, action: '수정', target: '가계부 기록', summary: '용현 · 테스트 · 100원', createdAt: serverTimestamp() });
-const cardDetail = () => ({ cardKey: 'shinhan-y', cardName: '신한카드', person: 'y', date: '2026-11-05', title: '휴대폰 케이스', category: '생활용품', amount: 22300, memo: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+const cardDetail = () => ({ cardKey: 'shinhan-y', cardName: '신한카드', person: 'y', date: '2026-11-05', title: '휴대폰 케이스', category: '쇼핑', paymentType: 'single', installmentMonths: 0, amount: 22300, memo: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 test('승인된 두 계정은 공동 거래를 읽고 쓸 수 있다', async () => {
   const y = environment.authenticatedContext('y').firestore();
   const s = environment.authenticatedContext('s').firestore();
@@ -69,6 +69,8 @@ test('카드 상세 내역은 승인된 부부만 공동으로 관리하며 카�
   const s = environment.authenticatedContext('s').firestore();
   const outsider = environment.authenticatedContext('outsider').firestore();
   await assertSucceeds(setDoc(doc(y, cardDetailPath('case')), cardDetail()));
+  await assertSucceeds(setDoc(doc(y, cardDetailPath('installment')), { ...cardDetail(), paymentType: 'installment', installmentMonths: 6 }));
+  await assertFails(setDoc(doc(y, cardDetailPath('invalid-installment')), { ...cardDetail(), paymentType: 'installment', installmentMonths: 1 }));
   await assertSucceeds(setDoc(doc(s, cardDetailPath('common')), { ...cardDetail(), cardKey: 'living-common', cardName: '생활비 카드', person: 'common' }));
   await assertSucceeds(getDoc(doc(s, cardDetailPath('case'))));
   await assertSucceeds(updateDoc(doc(s, cardDetailPath('case')), { category: '선물', updatedAt: serverTimestamp() }));
