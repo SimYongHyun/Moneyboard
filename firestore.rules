@@ -41,12 +41,20 @@ service cloud.firestore {
         && d.installments is int && d.installments >= 0 && d.installments <= 120
         && (!d.keys().hasAll(['sortOrder']) || (d.sortOrder is int && d.sortOrder >= 0 && d.sortOrder <= 1000000000)) && stamps(d);
     }
+    function cardDetail(d) {
+      return d.keys().hasAll(['cardKey','cardName','person','date','title','category','amount','memo','createdAt','updatedAt'])
+        && d.keys().hasOnly(['cardKey','cardName','person','date','title','category','amount','memo','createdAt','updatedAt'])
+        && d.cardKey in ['shinhan-y','hyundai-y','samsung-s']
+        && ((d.cardKey == 'shinhan-y' && d.cardName == '신한카드' && d.person == 'y') || (d.cardKey == 'hyundai-y' && d.cardName == '현대카드' && d.person == 'y') || (d.cardKey == 'samsung-s' && d.cardName == '삼성카드' && d.person == 's'))
+        && date(d.date) && text(d.title,100) && d.title.size() > 0 && text(d.category,80) && d.category.size() > 0
+        && money(d.amount) && text(d.memo,150) && stamps(d);
+    }
     function audit(d) {
       return d.keys().hasAll(['actorUid','action','target','summary','createdAt'])
         && d.keys().hasOnly(['actorUid','action','target','summary','createdAt'])
         && d.actorUid == request.auth.uid
         && d.action in ['등록','수정','삭제','상태 변경','순서 변경']
-        && d.target in ['가계부 기록','반복 거래','부업 기록']
+        && d.target in ['가계부 기록','반복 거래','부업 기록','카드 상세 내역']
         && text(d.summary,160) && d.summary.size() > 0
         && d.createdAt is timestamp && d.createdAt == request.time;
     }
@@ -94,6 +102,13 @@ service cloud.firestore {
         allow read: if householdMember(hid);
         allow create: if householdMember(hid) && audit(request.resource.data);
         allow update, delete: if false;
+      }
+      match /cardDetails/{id} {
+        allow read: if householdMember(hid);
+        allow create: if householdMember(hid) && cardDetail(request.resource.data);
+        allow update: if householdMember(hid) && cardDetail(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if householdMember(hid);
       }
     }
     match /users/{uid} {

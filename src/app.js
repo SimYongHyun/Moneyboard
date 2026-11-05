@@ -9,8 +9,8 @@ const dialog = document.getElementById('recordDialog');
 const formContainer = document.getElementById('recordFormContainer');
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const initialYear = Number(today.slice(0, 4));
-const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], auditLogs: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all' };
-const collectionNames = { transactions: 'transactions', rules: 'recurringRules', auditLogs: 'auditLogs', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
+const state = { page: 'home', year: initialYear, month: Number(today.slice(5, 7)), calendarMonth: null, status: 'loading', user: null, access: null, household: null, transactions: [], rules: [], auditLogs: [], cardDetails: [], earnings: [], expenses: [], investments: [], settings: {}, loaded: {}, error: '', filter: 'all', cardKey: 'shinhan-y' };
+const collectionNames = { transactions: 'transactions', rules: 'recurringRules', auditLogs: 'auditLogs', cardDetails: 'cardDetails', earnings: 'deliveryEarnings', expenses: 'deliveryExpenses', investments: 'deliveryInvestments' };
 let auth, db, unsubs = [], busy = false, toastTimer, chatWidget, chatLoading;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const selectedMonth = () => monthKey(state.year, state.month);
@@ -68,7 +68,7 @@ function authScreen() {
   root.innerHTML = `<div class="mock-app vA"><div class="app-shell side-shell"><aside class="sidebar"><div class="logo">◈ 머니보드</div><div class="side-footer"><b>우리집 공동 가계부</b>승인된 두 계정만 사용</div></aside><main class="app-main"><section class="card" style="max-width:510px;margin:12vh auto;width:100%;padding:29px"><span class="tag blue">우리집 머니보드</span><h2 style="margin:16px 0 9px">${loading ? '연결 중입니다' : state.status === 'signedOut' ? 'Google 계정으로 로그인' : '접근 상태 확인'}</h2><p class="sectionsub" style="font-size:12px">${escapeHtml(loading ? '인증 및 권한을 확인하고 있습니다.' : state.status === 'signedOut' ? '승인된 가족 계정으로 로그인하면 공동 가계부가 열립니다.' : accessMessage())}</p>${state.user ? `<p class="sectionsub">계정: ${escapeHtml(state.user.email || '')}<br>UID: ${escapeHtml(state.user.uid)}</p>` : ''}<div class="inline" style="margin-top:20px">${state.status === 'signedOut' ? '<button class="pill-btn primary" data-login>Google 로그인</button>' : ''}${state.user ? '<button class="pill-btn" data-logout>로그아웃</button>' : ''}</div></section></main></div></div>`;
   applyBranding();
 }
-function clearSubscriptions() { for (const stop of unsubs) stop(); unsubs = []; state.loaded = {}; state.transactions = []; state.rules = []; state.auditLogs = []; state.earnings = []; state.expenses = []; state.investments = []; state.settings = {}; }
+function clearSubscriptions() { for (const stop of unsubs) stop(); unsubs = []; state.loaded = {}; state.transactions = []; state.rules = []; state.auditLogs = []; state.cardDetails = []; state.earnings = []; state.expenses = []; state.investments = []; state.settings = {}; }
 function subscribe(key, path) {
   state.loaded[key] = false;
   const unsubscribe = onSnapshot(query(collection(db, ...path), limit(5000)), { includeMetadataChanges: true }, snapshot => {
@@ -106,6 +106,7 @@ async function authorize(user) {
     subscribe('transactions', ['households', state.access.householdId, 'transactions']);
     subscribe('rules', ['households', state.access.householdId, 'recurringRules']);
     subscribe('auditLogs', ['households', state.access.householdId, 'auditLogs']);
+    subscribe('cardDetails', ['households', state.access.householdId, 'cardDetails']);
     if (hasDelivery()) {
       subscribe('earnings', ['users', deliveryOwnerUid(), 'deliveryEarnings']);
       subscribe('expenses', ['users', deliveryOwnerUid(), 'deliveryExpenses']);
@@ -119,7 +120,7 @@ else {
   onAuthStateChanged(auth, user => authorize(user));
 }
 function yearMonth() { const years = Array.from({ length: 11 }, (_, i) => initialYear - 5 + i); if (!years.includes(state.year)) years.push(state.year); years.sort((a, b) => a - b); return `<div class="yearbar"><select aria-label="연도 선택" data-year>${years.map(y => `<option value="${y}" ${y === state.year ? 'selected' : ''}>${y}년</option>`).join('')}</select><select aria-label="월 선택" data-month>${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === state.month ? 'selected' : ''}>${i + 1}월</option>`).join('')}</select></div>`; }
-const menu = [['home', '⌂', '홈'], ['ledger', '▤', '부부 가계부'], ['side', '◉', '부업']];
+const menu = [['home', '⌂', '홈'], ['ledger', '▤', '부부 가계부'], ['cards', '▣', '카드 상세 내역'], ['side', '◉', '부업']];
 function shell(content) {
   const menus = menu.map(([page, icon, label]) => `<button type="button" data-page="${page}" class="${state.page === page ? 'active' : ''}"><span class="navic">${icon}</span><span class="navtext">${label}</span></button>`).join('');
   return `<div class="mock-app vA"><div class="app-shell side-shell"><aside class="sidebar"><div class="logo">◈ 머니보드</div><div class="side-nav">${menus}</div><div class="side-footer"><b>우리집 공동 가계부</b>${escapeHtml(state.settings.displayName || state.user?.email || '')}<br><button class="pill-btn" data-settings>설정</button> <button class="pill-btn" data-logout>로그아웃</button></div></aside><main class="app-main">${content}<div class="note">${state.offline ? '오프라인 캐시를 표시하고 있습니다. 연결 상태를 확인하세요.' : 'Firebase 실시간 동기화 중'}</div><div class="inline mobile-logout"><button class="pill-btn" data-settings>설정</button><button class="pill-btn" data-logout>로그아웃</button></div></main><nav class="bottom-nav" aria-label="화면 메뉴">${menus}</nav></div></div>`;
@@ -174,6 +175,21 @@ function categoryExpenseGraph() {
 function ledger() {
   const t = house(selectedMonth()), shown = t.hasData, value = n => shown ? money(n) : '—';
   return shell(`${heading('우리집 월별 가계부', '부부 합산 현황과 용현·선영 병렬 장부를 함께 확인합니다.')}<section class="ledger-overview surface"><div class="ledger-lead"><div><span class="tag blue">우리집 이번 달 현황</span><div class="sectionsub">이번 달 예상 잔여 금액</div><div class="counter mono">${value(t.balance)}</div></div><button class="pill-btn ledger-add-btn" data-ledger-add>+ 지출 등록</button></div><div class="ledger-mini"><span>수령액 <b>${value(t.income)}</b></span><span>지출 예정 <b>${value(t.expense)}</b></span><span>용현 잔여 <b>${t.y.items.length ? money(t.y.balance) : '—'}</b></span><span>선영 잔여 <b>${t.s.items.length ? money(t.s.balance) : '—'}</b></span></div></section><div class="between wrap"><div class="filter-row"><span class="tag blue">월별 장부</span><span class="tag">용현/선영 병렬 보기</span><select data-filter aria-label="거래 분류 필터"><option value="all">전체</option>${['income', 'expense'].map(v => `<option value="${v}" ${v === state.filter ? 'selected' : ''}>${typeLabels[v]}</option>`).join('')}</select></div><div class="inline"><button class="pill-btn" data-rule-add>반복 등록</button><button class="pill-btn" data-copy-previous>이전월 복사</button><button class="pill-btn" data-backup="json">JSON 백업</button><button class="pill-btn" data-backup="csv">연간 CSV</button><button class="pill-btn" data-import>가져오기</button></div></div><div class="ledger-columns">${personPanel(t.y, 'y')}${personPanel(t.s, 's')}</div><div class="ledger-footer"><div><div class="micro">용현 지출 합계</div><b>${t.y.items.length ? money(t.y.expense) : '—'}</b></div><div><div class="micro">선영 지출 합계</div><b>${t.s.items.length ? money(t.s.expense) : '—'}</b></div><div><div class="micro">부부 총 잔여 예상액</div><b class="plus">${value(t.balance)}</b></div></div>${categoryExpenseGraph()}<details class="card"><summary>반복 거래 ${state.rules.length}건 관리</summary><div class="investment-list">${state.rules.map(r => `<div class="between"><span>${escapeHtml(r.title)} · ${money(r.amount)} · 매월 ${r.day}일${r.installments ? ` · ${r.installments}회 할부` : ''}</span><span><button class="small-action" data-rule-edit="${escapeHtml(r.id)}">수정</button> <button class="small-action danger" data-rule-delete="${escapeHtml(r.id)}">삭제</button></span></div>`).join('')}</div></details><div class="note">카드 사용액은 지출로, 카드대금 납부는 내부 이체로 등록하세요. 저축·대출 원금·내부 이체는 지출 합계에서 제외합니다.</div>`);
+}
+const cardCatalog = [
+  { key: 'shinhan-y', name: '신한카드', person: 'y' },
+  { key: 'hyundai-y', name: '현대카드', person: 'y' },
+  { key: 'samsung-s', name: '삼성카드', person: 's' }
+];
+const personName = key => key === 's' ? '선영' : '용현';
+const activeCard = () => cardCatalog.find(card => card.key === state.cardKey) || cardCatalog[0];
+const cardTotal = card => state.transactions.filter(record => monthOf(record.date) === selectedMonth() && record.person === card.person && record.type === 'expense' && `${record.title} ${record.paymentMethod} ${record.account}`.replaceAll(' ', '').includes(card.name.replaceAll(' ', '').replace('카드', ''))).reduce((sum, record) => sum + record.amount, 0);
+const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && monthOf(record.date) === selectedMonth()).sort((a, b) => b.date.localeCompare(a.date));
+function cardDetails() {
+  const active = activeCard(), rows = cardRows(active), total = cardTotal(active), detailed = rows.reduce((sum, row) => sum + row.amount, 0), uncategorized = total - detailed;
+  const categories = Object.entries(rows.reduce((all, row) => { const category = row.category || '미분류'; all[category] = (all[category] || 0) + row.amount; return all; }, {})).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...categories.map(([, amount]) => amount));
+  return shell(`${heading('카드 상세 내역', '카드 총액은 부부 가계부에서 관리하고, 이 화면에서는 카드 사용처를 세부적으로 확인합니다.')}<div class="card-picker">${cardCatalog.map(card => { const items = cardRows(card), amount = cardTotal(card), used = items.reduce((sum, row) => sum + row.amount, 0); return `<button class="card-picker-item ${card.key === active.key ? 'active' : ''}" data-card-pick="${card.key}"><span>${card.name} · ${personName(card.person)}</span><strong class="mono">${money(amount)}</strong><small>상세 ${items.length}건 · 미분류 ${money(Math.max(0, amount - used))}</small></button>`; }).join('')}</div><section class="card card-detail-panel"><div class="section-heading"><div><h3>${active.name} · ${personName(active.person)}</h3><div class="sectionsub">${state.year}년 ${state.month}월 카드 사용 상세</div></div><button class="pill-btn ledger-add-btn" data-card-detail-add>+ 상세 지출 등록</button></div><div class="card-detail-summary"><div><span>카드 총액</span><b class="mono">${money(total)}</b></div><div><span>세부 내역 합계</span><b class="mono">${money(detailed)}</b></div><div><span>미분류 금액</span><b class="mono ${uncategorized < 0 ? 'minus' : ''}">${money(uncategorized)}</b></div></div>${total === 0 ? '<div class="hintbox">이 카드의 월 총액을 먼저 부부 가계부에 지출로 등록해 주세요. 상세 내역은 총액에 중복 합산되지 않습니다.</div>' : ''}<div class="card-detail-grid"><section><div class="section-heading"><h3>세부 지출 내역</h3><span class="tag blue">${rows.length}건</span></div>${rows.length ? `<div class="overflow-x"><table class="ledger-table"><thead><tr><th>사용일</th><th>항목</th><th>카테고리</th><th style="text-align:right">금액</th><th>관리</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.date.slice(5))}</td><td>${escapeHtml(row.title)}${row.memo ? `<div class="micro">${escapeHtml(row.memo)}</div>` : ''}</td><td><span class="tag blue">${escapeHtml(row.category)}</span></td><td class="amount mono">${money(row.amount)}</td><td><button class="small-action" data-card-detail-edit="${escapeHtml(row.id)}">수정</button> <button class="small-action danger" data-card-detail-delete="${escapeHtml(row.id)}">삭제</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="no-data">아직 등록한 상세 지출이 없습니다.</div>'}</section><section class="card-category-chart"><div class="section-heading"><div><h3>카테고리별 지출</h3><div class="sectionsub">금액이 많은 순서</div></div></div>${categories.length ? `<div class="card-category-list">${categories.map(([category, amount], index) => `<div class="card-category-row"><span>${index + 1}</span><div><div class="between"><b>${escapeHtml(category)}</b><strong class="mono">${money(amount)}</strong></div><i><em style="width:${amount / max * 100}%"></em></i></div></div>`).join('')}</div>` : '<div class="no-data">상세 지출을 등록하면 카테고리 그래프가 표시됩니다.</div>'}</section></div><div class="note">상세 내역은 카드 총액에 중복 합산되지 않습니다. 미분류 금액은 카드 총액에서 상세 내역 합계를 뺀 값입니다.</div></section>`);
 }
 function periodSeries() { return Array.from({ length: 12 }, (_, i) => deliveryTotals(state.earnings, state.expenses, monthKey(state.year, i + 1), true)); }
 function monthlyChart() {
@@ -236,14 +252,14 @@ function side() {
 function render() {
   if (state.status !== 'ready') { authScreen(); return; }
   document.querySelector('.notice-right').textContent = state.offline ? '오프라인 캐시' : 'Firebase 실시간 동기화';
-  root.innerHTML = { home, ledger, side }[state.page]();
+  root.innerHTML = { home, ledger, cards: cardDetails, side }[state.page]();
   applyBranding();
   root.querySelectorAll('.business-mini .micro small, .side-metrics > div:first-child .micro:last-child').forEach(element => element.remove());
   const filter = root.querySelector('[data-filter]');
   if (filter) filter.value = state.filter;
-  document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : '배달 부업'}`;
+  document.title = `우리집 머니보드 · ${state.page === 'home' ? '홈' : state.page === 'ledger' ? '가계부' : state.page === 'cards' ? '카드 상세 내역' : '부업'}`;
   if (!chatWidget && !chatLoading) {
-    chatLoading = import('./chat-widget.js?v=20261103-2').then(({ mountChatbot }) => {
+    chatLoading = import('./chat-widget.js?v=20261105-1').then(({ mountChatbot }) => {
       if (state.status === 'ready' && !chatWidget) chatWidget = mountChatbot(() => ({
         status: state.status, year: state.year, month: state.month, offline: state.offline,
         deliveryEnabled: hasDelivery(), transactions: state.transactions, rules: state.rules,
@@ -293,6 +309,32 @@ function openLedger(record = null, recurring = false) {
   const date = r.date || selectedMonth() + '-01';
   openDialog(editing ? '가계부 기록 수정' : isRule ? '반복 거래 등록' : '가계부 기록 등록', '내부 이체·저축·대출 원금은 지출 합계에서 제외됩니다.',
     `<form id="ledgerForm" data-id="${escapeHtml(r.id || '')}" data-rule="${isRule ? 'true' : 'false'}">${choice('담당자', 'person', [['y', '용현'], ['s', '선영']], r.person || 'y')}${choice('분류', 'type', Object.entries(typeLabels), r.type || 'expense')}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}${isRule ? field('반복 시작월', 'startMonth', r.startMonth || selectedMonth(), { type: 'month', required: true }) : field('거래·결제일', 'date', date, { type: 'date', required: true })}</div>${isRule ? `<div class="form-row three">${field('반복 종료월 (선택)', 'endMonth', r.endMonth || '', { type: 'month' })}${field('매월 결제일', 'day', r.day || 1, { type: 'number', min: 1, step: 1 })}${field('할부 총 회차 (0=계속)', 'installments', r.installments || 0, { type: 'number', min: 0, step: 1 })}</div>` : ''}<div class="form-row">${field('카테고리', 'category', r.category || '')}${field('결제 수단', 'paymentMethod', r.paymentMethod || '')}</div>${field('계좌·결제처', 'account', r.account || '')}${field('메모', 'memo', r.memo || '')}${!isRule ? `<div class="form-row">${choice('납부 상태', 'paid', [['false', '미완료'], ['true', '완료']], String(r.paid || false))}${field('실제 납부일 (선택)', 'paidDate', r.paidDate || '', { type: 'date' })}</div>` : ''}${buttons(editing)}</form>`);
+}
+function openCardDetail(record = null) {
+  const card = record ? cardCatalog.find(item => item.key === record.cardKey) : activeCard();
+  const r = record || {}, date = r.date || (selectedMonth() === monthOf(today) ? today : `${selectedMonth()}-01`);
+  openDialog(r.id ? '카드 상세 지출 수정' : '카드 상세 지출 등록', `${card.name} · ${personName(card.person)} 카드 총액에는 중복 합산되지 않습니다.`, `<form id="cardDetailForm" data-id="${escapeHtml(r.id || '')}"><div class="hintbox"><b>${card.name} · ${personName(card.person)}</b><br>이 내역은 카드 사용처 분석용이며 부부 가계부 지출 합계에는 더해지지 않습니다.</div>${field('사용일', 'date', date, { type: 'date', required: true })}${field('항목 이름', 'title', r.title || '', { required: true, maxLength: 100 })}<div class="form-row">${field('카테고리', 'category', r.category || '', { required: true, maxLength: 80 })}${field('금액 (원)', 'amount', r.amount ?? '', { currency: true, required: true })}</div>${field('메모', 'memo', r.memo || '', { maxLength: 150 })}${buttons(!!r.id)}</form>`);
+}
+async function saveCardDetail(form) {
+  const id = form.dataset.id, card = activeCard();
+  const record = { cardKey: card.key, cardName: card.name, person: card.person, date: form.elements.date.value, title: form.elements.title.value.trim(), category: form.elements.category.value.trim(), amount: integer(form.elements.amount.value), memo: form.elements.memo.value.trim() };
+  if (!validDate(record.date)) throw Error('사용일을 확인하세요.');
+  if (!record.title || record.title.length > 100) throw Error('항목 이름을 확인하세요.');
+  if (!record.category || record.category.length > 80) throw Error('카테고리를 입력해 주세요.');
+  if (record.memo.length > 150) throw Error('메모는 150자 이내로 입력하세요.');
+  const ref = id ? doc(db, 'households', state.access.householdId, 'cardDetails', id) : doc(collection(db, 'households', state.access.householdId, 'cardDetails'));
+  if (id) await updateDoc(ref, { ...record, updatedAt: serverTimestamp() });
+  else await setDoc(ref, { ...record, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await writeAudit(id ? '수정' : '등록', '카드 상세 내역', `${card.name} · ${personName(card.person)} · ${record.title} · ${money(record.amount)}`);
+  state.year = Number(record.date.slice(0, 4)); state.month = Number(record.date.slice(5, 7)); state.page = 'cards';
+  closeDialog(); render(); notify('카드 상세 지출을 저장했습니다.');
+}
+async function removeCardDetail(id) {
+  const record = state.cardDetails.find(item => item.id === id); if (!record) return;
+  if (!confirm(`${record.title} 상세 내역을 삭제하시겠습니까?`)) return;
+  await deleteDoc(doc(db, 'households', state.access.householdId, 'cardDetails', id));
+  await writeAudit('삭제', '카드 상세 내역', `${record.cardName} · ${record.title} · ${money(record.amount)}`);
+  notify('카드 상세 내역을 삭제했습니다.');
 }
 function openSettings() {
   openDialog('개인 설정', '이 설정은 로그인한 본인에게만 보입니다.', `<form id="settingsForm">${field('표시 이름', 'displayName', state.settings.displayName || state.user.displayName || '', { maxLength: 40 })}${choice('기본 배달 플랫폼', 'defaultPlatform', [['쿠팡이츠', '쿠팡이츠'], ['배민커넥트', '배민커넥트']], state.settings.defaultPlatform || '쿠팡이츠')}${buttons(!!state.settings.ownerUid)}</form>`);
@@ -531,6 +573,10 @@ document.addEventListener('click', async event => {
     }
     if (button.dataset.calendarMove) { state.calendarMonth = shiftCalendarMonth(Number(button.dataset.calendarMove)); render(); return; }
     if (button.dataset.page) { if (button.dataset.page === 'side' && state.page !== 'side') state.calendarMonth = null; state.page = button.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (button.dataset.cardPick) { state.cardKey = button.dataset.cardPick; render(); return; }
+    if (button.hasAttribute('data-card-detail-add')) { openCardDetail(); return; }
+    if (button.dataset.cardDetailEdit) { const record = state.cardDetails.find(item => item.id === button.dataset.cardDetailEdit); if (record) { state.cardKey = record.cardKey; openCardDetail(record); } return; }
+    if (button.dataset.cardDetailDelete) { await removeCardDetail(button.dataset.cardDetailDelete); return; }
     if (button.dataset.add) { openDelivery(button.dataset.add, button.dataset.platform || state.settings.defaultPlatform || '쿠팡이츠'); return; }
     if (button.hasAttribute('data-ledger-add')) { openLedger(); return; }
     if (button.hasAttribute('data-rule-add')) { openLedger(null, true); return; }
@@ -571,12 +617,13 @@ document.addEventListener('input', event => {
 });
 document.addEventListener('submit', async event => {
   const form = event.target;
-  if (!['deliveryForm', 'ledgerForm', 'importForm', 'settingsForm'].includes(form.id)) return;
+  if (!['deliveryForm', 'ledgerForm', 'cardDetailForm', 'importForm', 'settingsForm'].includes(form.id)) return;
   event.preventDefault(); if (busy) return;
   busy = true; const submit = form.querySelector('[type="submit"]'); if (submit) submit.disabled = true;
   try {
     if (form.id === 'deliveryForm') await saveDelivery(form);
     else if (form.id === 'ledgerForm') await saveLedger(form);
+    else if (form.id === 'cardDetailForm') await saveCardDetail(form);
     else if (form.id === 'settingsForm') await saveSettings(form);
     else {
       const file = form.querySelector('#importFile').files[0]; if (!file) throw Error('JSON 파일을 선택하세요.');
