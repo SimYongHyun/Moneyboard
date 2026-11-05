@@ -20,8 +20,8 @@ export function validateDelivery(record) {
   if (record.kind === 'income') {
     if (!['쿠팡이츠', '배민커넥트'].includes(record.platform)) throw Error('플랫폼을 선택하세요.');
     integer(record.grossIncome, '수입');
-    integer(record.deliveryCount, '배달 건수');
-    if (record.deliveryCount > 1000000) throw Error('배달 건수를 확인하세요.');
+    integer(record.deliveryCount, '부업 건수');
+    if (record.deliveryCount > 1000000) throw Error('부업 건수를 확인하세요.');
     for (const key of ['workHours', 'distanceKm']) if (!Number.isFinite(record[key]) || record[key] < 0 || record[key] > 1000000) throw Error('시간과 거리를 확인하세요.');
   } else if (record.kind === 'expense' || record.kind === 'investment') {
     integer(record.amount);

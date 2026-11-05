@@ -70,7 +70,7 @@ export function answerQuestion(question, context, now = seoulDate()) {
   const raw = String(question || '').trim().slice(0, 500);
   if (!raw) return answer('질문을 입력해 주세요.');
   const q = normalized(raw);
-  if (/등록|추가|수정|삭제|지워|저장|입력해|바꿔/.test(q) && /해\s*줘|해줘|해\s*주세요|할래|시켜|해라|부탁/.test(q)) return answer('챗봇은 조회만 할 수 있습니다. 가계부 기록은 부부 가계부의 + 지출 등록, 배달 수익은 부업의 + 기록에서 등록해 주세요.');
+  if (/등록|추가|수정|삭제|지워|저장|입력해|바꿔/.test(q) && /해\s*줘|해줘|해\s*주세요|할래|시켜|해라|부탁/.test(q)) return answer('챗봇은 조회만 할 수 있습니다. 가계부 기록은 부부 가계부의 + 지출 등록, 부업 수익은 부업의 + 기록에서 등록해 주세요.');
   const period = resolvePeriod(raw, context.year, context.month, now);
   if (period.error) return answer(period.error);
   const delivery = /배달|부업|쿠팡이츠|배민커넥트|플랫폼|운영비|투자금|오토바이|회수|정산|수익|순현금|주행|초기 비용/.test(q);
@@ -132,9 +132,9 @@ function householdAnswer(q, context, period) {
 
 function deliveryAnswer(q, context, period, now) {
   const rows = deliveryRows(context, period), sums = deliveryTotals(rows.earnings, rows.expenses, period.end.slice(0, 7), false);
-  const prefix = `${period.label} 배달`;
+  const prefix = `${period.label} 부업`;
   const empty = rows.earnings.length + rows.expenses.length === 0;
-  const noRows = `${period.label} 배달 수익·운영비 기록이 없습니다.`;
+  const noRows = `${period.label} 부업 수익·운영비 기록이 없습니다.`;
   const platform = /쿠팡이츠/.test(q) ? '쿠팡이츠' : /배민커넥트/.test(q) ? '배민커넥트' : '';
   const byPlatform = name => rows.earnings.filter(record => record.platform === name).reduce((sum, record) => sum + record.grossIncome, 0);
   const totalUntil = period.end.slice(0, 7);
@@ -149,7 +149,7 @@ function deliveryAnswer(q, context, period, now) {
     if (!capital.capital) return answer(noCapital);
     if (capital.completed) return answer('현재 등록된 기록 기준으로 투자금을 전액 회수했습니다.');
     const current = now.slice(0, 7), last = series(range(`${shiftMonth(current, -2)}-01`, endMonth(current), '최근 3개월'));
-    if (last.some(row => !row.count || row.net <= 0)) return answer('최근 3개월 모두 배달 실적과 양의 순수익이 있어야 회수 예상 시점을 계산할 수 있습니다.');
+    if (last.some(row => !row.count || row.net <= 0)) return answer('최근 3개월 모두 부업 실적과 양의 순수익이 있어야 회수 예상 시점을 계산할 수 있습니다.');
     const average = last.reduce((sum, row) => sum + row.net, 0) / 3, months = Math.ceil(capital.remaining / average);
     if (months < 1 || months > 120) return answer('현재 실적으로는 신뢰할 만한 회수 예상 시점을 표시하기 어렵습니다.');
     const expected = shiftMonth(current, months);
@@ -157,12 +157,12 @@ function deliveryAnswer(q, context, period, now) {
   }
   if (/가장.*(수익|벌었).*달|수익.*가장.*달/.test(q)) {
     const year = Number(period.start.slice(0, 4)), monthly = series(range(`${year}-01-01`, `${year}-12-31`, `${year}년`)), best = bestMonth(monthly, 'payout');
-    return answer(monthly.every(row => !row.count) ? `${year}년 배달 기록이 없습니다.` : `${year}년 배달 수익이 가장 높았던 달은 ${Number(best.key.slice(5))}월이며 ${won(best.payout)}입니다.`);
+    return answer(monthly.every(row => !row.count) ? `${year}년 부업 기록이 없습니다.` : `${year}년 부업 수익이 가장 높았던 달은 ${Number(best.key.slice(5))}월이며 ${won(best.payout)}입니다.`);
   }
   if (/추이|최근.*실적|월별.*수익/.test(q)) {
     const scope = period.start.slice(0, 7) === period.end.slice(0, 7) ? range(`${context.year}-01-01`, `${context.year}-12-31`, `${context.year}년`) : period;
     const monthly = series(scope);
-    return answer(monthly.every(row => !row.count) ? `${scope.label} 배달 기록이 없습니다.` : `${scope.label} 월별 배달 실적입니다.\n${monthly.map(row => `${Number(row.key.slice(5))}월 수익 ${won(row.payout)} · ${row.deliveries}건`).join('\n')}\n기록이 없는 월은 0원으로 표시했습니다.`);
+    return answer(monthly.every(row => !row.count) ? `${scope.label} 부업 기록이 없습니다.` : `${scope.label} 월별 부업 실적입니다.\n${monthly.map(row => `${Number(row.key.slice(5))}월 수익 ${won(row.payout)} · ${row.deliveries}건`).join('\n')}\n기록이 없는 월은 0원으로 표시했습니다.`);
   }
   if (/투자금|회수|원금|초기 비용/.test(q)) {
     if (/초기.*(투자|비용)|투자.*(합계|총|얼마)|오토바이.*투자/.test(q) && !/회수|남았|남은/.test(q)) return answer(context.investments.length ? `${totalUntil}까지 등록된 초기·추가 투자비는 ${won(capital.capital)}입니다.` : `${totalUntil}까지 등록된 투자비가 없습니다.`);
@@ -170,15 +170,15 @@ function deliveryAnswer(q, context, period, now) {
     if (/남았|남은|잔여/.test(q)) return answer(`현재 남은 투자금은 ${won(capital.remaining)}입니다. 회수율은 ${capital.percent.toFixed(1)}%입니다.`);
     return answer(`투자금 회수율은 ${capital.percent.toFixed(1)}%입니다.\n누적 운영 순현금수익 ${won(capital.cash)} / 투자비 ${won(capital.capital)}\n남은 투자금 ${won(capital.remaining)} · 투자비 차감 손익 ${won(capital.profit)}`);
   }
-  if (/누적.*(순현금|손익|순수익)/.test(q)) return answer(hasAnyDelivery(context) ? `${totalUntil}까지 누적 운영 순현금수익은 ${won(cumulative.net)}, 투자비 차감 손익은 ${won(capital.profit)}입니다.` : '등록된 배달 기록이 없습니다.');
+  if (/누적.*(순현금|손익|순수익)/.test(q)) return answer(hasAnyDelivery(context) ? `${totalUntil}까지 누적 운영 순현금수익은 ${won(cumulative.net)}, 투자비 차감 손익은 ${won(capital.profit)}입니다.` : '등록된 부업 기록이 없습니다.');
   if (/누적.*운영비/.test(q)) return answer(context.expenses.length ? `${totalUntil}까지 누적 운영비는 ${won(cumulative.expenses)}입니다.` : '등록된 운영비 기록이 없습니다.');
-  if (/누적.*(수익|수입)/.test(q)) return answer(context.earnings.length ? `${totalUntil}까지 누적 배달 수익은 ${won(cumulative.payout)}입니다.` : '등록된 배달 수익 기록이 없습니다.');
-  if (/플랫폼.*비교|쿠팡이츠.*배민커넥트|배민커넥트.*쿠팡이츠/.test(q)) return answer(rows.earnings.length ? `${prefix} 플랫폼별 수익입니다.\n쿠팡이츠 ${won(byPlatform('쿠팡이츠'))} · 배민커넥트 ${won(byPlatform('배민커넥트'))}` : `${period.label} 배달 수익 기록이 없습니다.`);
-  if (platform) return answer(rows.earnings.some(row => row.platform === platform) ? `${prefix} ${platform} 수익은 ${won(byPlatform(platform))}입니다. 배달 수행일 기준입니다.` : `${period.label} ${platform} 수익 기록이 없습니다.`);
-  if (/정산.*완료/.test(q)) return answer(rows.earnings.length ? `${prefix} 등록된 실정산액은 ${won(sums.payout)}입니다. 현재 장부에는 별도의 정산 완료 상태가 없어 완료 여부는 구분할 수 없습니다.` : `${period.label} 배달 수익 기록이 없습니다.`);
-  if (/건수|몇 건|배달.*(횟수|실적)/.test(q)) return answer(rows.earnings.length ? `${prefix} 등록된 배달 건수는 ${sums.deliveries.toLocaleString('ko-KR')}건입니다.` : `${period.label} 배달 수익 기록이 없습니다.`);
+  if (/누적.*(수익|수입)/.test(q)) return answer(context.earnings.length ? `${totalUntil}까지 누적 부업 수익은 ${won(cumulative.payout)}입니다.` : '등록된 부업 수익 기록이 없습니다.');
+  if (/플랫폼.*비교|쿠팡이츠.*배민커넥트|배민커넥트.*쿠팡이츠/.test(q)) return answer(rows.earnings.length ? `${prefix} 플랫폼별 수익입니다.\n쿠팡이츠 ${won(byPlatform('쿠팡이츠'))} · 배민커넥트 ${won(byPlatform('배민커넥트'))}` : `${period.label} 부업 수익 기록이 없습니다.`);
+  if (platform) return answer(rows.earnings.some(row => row.platform === platform) ? `${prefix} ${platform} 수익은 ${won(byPlatform(platform))}입니다. 수익 발생일 기준입니다.` : `${period.label} ${platform} 수익 기록이 없습니다.`);
+  if (/정산.*완료/.test(q)) return answer(rows.earnings.length ? `${prefix} 등록된 실정산액은 ${won(sums.payout)}입니다. 현재 장부에는 별도의 정산 완료 상태가 없어 완료 여부는 구분할 수 없습니다.` : `${period.label} 부업 수익 기록이 없습니다.`);
+  if (/건수|몇 건|배달.*(횟수|실적)/.test(q)) return answer(rows.earnings.length ? `${prefix} 등록된 부업 건수는 ${sums.deliveries.toLocaleString('ko-KR')}건입니다.` : `${period.label} 부업 수익 기록이 없습니다.`);
   if (/운영비|비용|기름값|주유/.test(q)) return answer(rows.expenses.length ? `${prefix} 운영비는 ${won(sums.expenses)}입니다.` : `${period.label} 운영비 기록이 없습니다.`);
   if (/순수익|순현금|순이익/.test(q)) return answer(empty ? noRows : `${prefix} 순현금수익은 ${won(sums.net)}입니다.\n수익 ${won(sums.payout)} − 운영비 ${won(sums.expenses)} 기준입니다.`);
-  if (/수익|수입|벌었|배달료|정산/.test(q)) return answer(rows.earnings.length ? `${prefix} 수익 현황입니다.\n총 배달 수익 ${won(sums.payout)}\n쿠팡이츠 ${won(byPlatform('쿠팡이츠'))} · 배민커넥트 ${won(byPlatform('배민커넥트'))}\n운영비 ${won(sums.expenses)}\n순현금수익 ${won(sums.net)}` : `${period.label} 배달 수익 기록이 없습니다.`);
+  if (/수익|수입|벌었|배달료|정산/.test(q)) return answer(rows.earnings.length ? `${prefix} 수익 현황입니다.\n총 부업 수익 ${won(sums.payout)}\n쿠팡이츠 ${won(byPlatform('쿠팡이츠'))} · 배민커넥트 ${won(byPlatform('배민커넥트'))}\n운영비 ${won(sums.expenses)}\n순현금수익 ${won(sums.net)}` : `${period.label} 부업 수익 기록이 없습니다.`);
   return answer(noSupport);
 }

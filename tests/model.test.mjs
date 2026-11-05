@@ -4,7 +4,7 @@ import { validDate, integer, validateDelivery, deliveryTotals, recovery, househo
 
 const earning = (workDate, platform, grossIncome, settlementDeduction = 0) => ({ kind: 'income', workDate, platform, grossIncome, settlementDeduction, deliveryCount: 1, workHours: 1, distanceKm: 5, memo: '' });
 const cost = (workDate, amount) => ({ kind: 'expense', workDate, amount, category: '주유비', memo: '' });
-test('배달 날짜와 원화 금액 검증', () => {
+test('부업 날짜와 원화 금액 검증', () => {
   assert.equal(validDate('2026-02-30'), false);
   assert.equal(validDate('2026-10-31'), true);
   assert.throws(() => validateDelivery(earning('2026-02-30', '쿠팡이츠', 100)));

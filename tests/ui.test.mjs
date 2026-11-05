@@ -194,7 +194,7 @@ test('승인되지 않은 계정에서는 챗봇이 생성되지 않는다', asy
   } finally { await browser.close(); }
 });
 
-test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신된다', async () => {
+test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신된다', async () => {
   const browser = await launchBrowser();
   try {
     const { context, page, errors } = await pageAt(browser, 1440);
@@ -236,7 +236,7 @@ test('가계부 입력과 배달 정산 화면이 사용자 조작으로 갱신�
     await page.getByRole('button', { name: '부업' }).first().click();
     assert.match(await page.locator('[data-add="income"]').first().evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
     assert.match(await page.locator('[data-add="investment"]').evaluate(el => getComputedStyle(el).backgroundImage), /linear-gradient/);
-    await page.getByRole('button', { name: /쿠팡이츠 배달 수익/ }).click();
+    await page.getByRole('button', { name: /쿠팡이츠 부업 수익/ }).click();
     await page.locator('#deliveryForm [name=workDate]').fill('2026-11-02');
     await page.locator('#deliveryForm [name=grossIncome]').fill('1000');
     assert.equal(await page.locator('#deliveryForm [name=grossIncome]').inputValue(), '1,000원');
@@ -289,7 +289,7 @@ test('모바일 장부와 부업 카드가 세로로 쌓이고 입력창을 사�
     await page.locator('.bottom-nav [data-page="side"]').click();
     const cards = await page.locator('.side-analytics > .card').evaluateAll(elements => elements.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y })));
     assert.equal(cards[0].x, cards[1].x); assert.ok(cards[1].y > cards[0].y);
-    await page.getByRole('button', { name: /쿠팡이츠 배달 수익/ }).click();
+    await page.getByRole('button', { name: /쿠팡이츠 부업 수익/ }).click();
     assert.equal(await page.locator('#deliveryForm [name=workDate]').isVisible(), true);
     await page.screenshot({ path: 'tools/ui-delivery-form-390.png' });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);

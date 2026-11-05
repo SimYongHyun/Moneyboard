@@ -60,36 +60,36 @@ test('가계부 금액은 화면의 반복 예정 및 납부 상태 계산과 �
   assert.match(ask('월별 지출 비교'), /11월 1,400,000원/);
 });
 
-test('배달 수행일, 플랫폼, 운영비와 기존 회수율 계산을 따른다', () => {
-  assert.match(ask('이번 달 배달 총수입'), /160,000원/);
+test('부업 발생일, 플랫폼, 운영비와 기존 회수율 계산을 따른다', () => {
+  assert.match(ask('이번 달 부업 총수입'), /160,000원/);
   assert.match(ask('쿠팡 수익'), /100,000원/);
   assert.match(ask('배민커넥트 수익'), /60,000원/);
   assert.match(ask('플랫폼별 수익 비교'), /쿠팡이츠 100,000원 · 배민커넥트 60,000원/);
-  assert.match(ask('이번 달 배달 건수'), /5건/);
+  assert.match(ask('이번 달 부업 건수'), /5건/);
   assert.match(ask('이번 달 정산 완료 금액'), /완료 여부는 구분할 수 없습니다/);
   assert.match(ask('이번 달 운영비'), /20,000원/);
-  assert.match(ask('이번 달 배달 순수익'), /140,000원/);
-  assert.match(ask('누적 배달 수익'), /360,000원/);
+  assert.match(ask('이번 달 부업 순수익'), /140,000원/);
+  assert.match(ask('누적 부업 수익'), /360,000원/);
   assert.match(ask('누적 운영비'), /70,000원/);
   assert.match(ask('초기 투자금'), /500,000원/);
   assert.match(ask('투자금 회수율'), /58\.0%/);
   assert.match(ask('남은 투자금'), /210,000원/);
   assert.match(ask('누적 순현금손익'), /290,000원/);
   assert.match(ask('가장 수익이 높았던 달'), /10월이며 200,000원/);
-  assert.match(ask('최근 3개월 배달 실적'), /11월 수익 160,000원 · 5건/);
+  assert.match(ask('최근 3개월 부업 실적'), /11월 수익 160,000원 · 5건/);
   assert.match(ask('투자금 회수 예상 시점'), /최근 3개월 모두/);
 });
 
 test('미등록, 실제 0원, 권한, 오프라인, 쓰기 요청과 미지원 질문을 구별한다', () => {
-  assert.match(ask('11월 배달 수익', { ...context, earnings: [], expenses: [] }), /수익 기록이 없습니다/);
-  assert.match(ask('배달 수익', { ...context, earnings: [{ workDate: '2026-11-02', platform: '쿠팡이츠', grossIncome: 0, deliveryCount: 0 }], expenses: [] }), /0원/);
+  assert.match(ask('11월 부업 수익', { ...context, earnings: [], expenses: [] }), /수익 기록이 없습니다/);
+  assert.match(ask('부업 수익', { ...context, earnings: [{ workDate: '2026-11-02', platform: '쿠팡이츠', grossIncome: 0, deliveryCount: 0 }], expenses: [] }), /0원/);
   assert.match(ask('지출', { ...context, transactions: [], rules: [] }), /기록이 없습니다/);
-  assert.match(ask('배달 수익', { ...context, deliveryEnabled: false }), /접근 권한이 없습니다/);
+  assert.match(ask('부업 수익', { ...context, deliveryEnabled: false }), /접근 권한이 없습니다/);
   assert.match(ask('지출', { ...context, status: 'signedOut' }), /로그인/);
   assert.match(ask('지출', { ...context, status: 'denied' }), /승인되지 않은/);
   assert.match(ask('지출', { ...context, status: 'error' }), /불러오지 못했습니다/);
   assert.match(ask('지출', { ...context, offline: true }), /오프라인 캐시/);
-  assert.match(ask('배달 수익 5만 원 등록해 줘'), /조회만 할 수 있습니다/);
+  assert.match(ask('부업 수익 5만 원 등록해 줘'), /조회만 할 수 있습니다/);
   assert.match(ask('주말 날씨 알려줘'), /아직 해당 질문은 지원하지 않습니다/);
   assert.match(ask('8월부터 2월까지 지출'), /월 범위를 확인/);
 });

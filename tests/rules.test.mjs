@@ -51,7 +51,7 @@ test('수정 이력은 승인된 두 계정만 읽고 작성하며 변경·삭�
   await assertFails(setDoc(doc(s, auditPath('spoof')), audit('y')));
   await assertFails(getDoc(doc(outsider, auditPath('one'))));
 });
-test('두 승인 계정은 공동 배달 장부를 읽고 쓸 수 있고 외부 계정은 차단된다', async () => {
+test('두 승인 계정은 공동 부업 장부를 읽고 쓸 수 있고 외부 계정은 차단된다', async () => {
   const y = environment.authenticatedContext('y').firestore();
   const s = environment.authenticatedContext('s').firestore();
   const outsider = environment.authenticatedContext('outsider').firestore();

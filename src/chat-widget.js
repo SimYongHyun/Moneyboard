@@ -1,4 +1,4 @@
-import { answerQuestion } from './chatbot.js';
+import { answerQuestion } from './chatbot.js?v=20261105-3';
 
 const suggestions = ['이번 달 지출', '이번 달 남은 돈', '미납 예정 금액', '쿠팡이츠 수익', '배민커넥트 수익', '투자금 회수율'];
 
@@ -7,7 +7,7 @@ export function mountChatbot(getContext) {
   host.id = 'moneyboard-chat';
   host.setAttribute('aria-label', '용비서');
   host.innerHTML = `<section class="mb-chat-panel" id="mb-chat-panel" role="region" aria-label="용비서 대화" hidden>
-    <header class="mb-chat-head"><span class="mb-chat-head-icon" aria-hidden="true">▤</span><div><strong>용비서</strong><small>우리집 가계부 · 배달 수익 도우미</small></div><button type="button" class="mb-chat-close" aria-label="용비서 닫기">×</button></header>
+    <header class="mb-chat-head"><span class="mb-chat-head-icon" aria-hidden="true">▤</span><div><strong>용비서</strong><small>우리집 가계부 · 부업 수익 도우미</small></div><button type="button" class="mb-chat-close" aria-label="용비서 닫기">×</button></header>
     <div class="mb-chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
     <div class="mb-chat-suggestions" aria-label="추천 질문"></div>
     <form class="mb-chat-form"><label class="mb-chat-input-wrap"><span class="sr-only">질문 입력</span><textarea name="question" rows="1" maxlength="500" placeholder="궁금한 내용을 입력해 주세요."></textarea></label><button type="submit" class="mb-chat-send" aria-label="질문 전송">➤</button></form>
@@ -32,7 +32,7 @@ export function mountChatbot(getContext) {
     while (messages.children.length > 100) messages.firstElementChild.remove();
     messages.scrollTop = messages.scrollHeight;
   }
-  append('assistant', '안녕하세요! 용비서입니다. 우리집 가계부와 배달 수익에 대해 질문해 주세요. 선택한 연·월을 기준으로도 답해 드립니다.');
+  append('assistant', '안녕하세요! 용비서입니다. 우리집 가계부와 부업 수익에 대해 질문해 주세요. 선택한 연·월을 기준으로도 답해 드립니다.');
   for (const prompt of suggestions) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = prompt;
     button.addEventListener('click', () => submitQuestion(prompt)); suggestionBox.append(button);
