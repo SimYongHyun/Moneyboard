@@ -71,6 +71,20 @@ test('카드 상세 내역과 할부 월 납입금을 선택 기간 기준으로
   assert.match(ask('이번 달 카드 상세 쇼핑 지출'), /기록이 없습니다/);
 });
 
+test('생활비 카드 공용을 다른 카드 및 가계부 카드 거래와 구분해 조회한다', () => {
+  const shared = {
+    ...context,
+    cardDetails: [...context.cardDetails, {
+      id: 'living', cardKey: 'living-common', cardName: '생활비 카드', person: 'common', date: '2026-11-07',
+      title: '공용 장보기', category: '장보기', amount: 80000, paymentType: 'single', installmentMonths: 0, memo: ''
+    }]
+  };
+  const result = ask('이번달 생활비 카드 공용 지출 알려줘', shared);
+  assert.match(result, /생활비 카드 · 공용/);
+  assert.match(result, /80,000원/);
+  assert.doesNotMatch(result, /330,000원/);
+});
+
 test('부업 발생일, 플랫폼, 운영비와 기존 회수율 계산을 따른다', () => {
   assert.match(ask('이번 달 부업 총수입'), /160,000원/);
   assert.match(ask('쿠팡 수익'), /100,000원/);

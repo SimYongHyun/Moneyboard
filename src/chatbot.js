@@ -98,12 +98,21 @@ function cardDetailAnswer(q, context, period) {
   if (!cards.length) return null;
   const terms = cardDetailTerms.filter(term => q.includes(term));
   const cardNames = cards.map(record => record.cardName).filter(Boolean);
-  const explicit = /할부|일시불|카드\s*상세|상세.*지출/.test(q) || cardNames.some(name => q.includes(name.replace('카드', '')));
+  const compact = value => String(value || '').replace(/\s+/g, '');
+  const questionKey = compact(q);
+  const commonCardRequested = /생활비카드|공용카드|생활비공용|공용생활비/.test(questionKey);
+  const requestedCard = commonCardRequested
+    ? { key: 'living-common', label: '생활비 카드 · 공용' }
+    : cardNames.map(name => ({ name, key: compact(name.replace('카드', '')) })).find(card => card.key && questionKey.includes(card.key));
+  const explicit = /할부|일시불|카드\s*상세|상세.*지출/.test(q) || Boolean(requestedCard);
   const intent = explicit || terms.length > 0;
   if (!intent) return null;
   const allRows = cardDetailRows(context, period);
-  const rows = terms.length ? allRows.filter(record => terms.some(term => [record.title, record.category, record.memo, record.cardName].join(' ').includes(term))) : allRows;
-  const detail = terms.length ? terms.join('·') : '카드 상세 지출';
+  const cardRows = requestedCard
+    ? allRows.filter(record => requestedCard.key === 'living-common' ? record.cardKey === 'living-common' || record.person === 'common' : compact(record.cardName).includes(requestedCard.key))
+    : allRows;
+  const rows = terms.length ? cardRows.filter(record => terms.some(term => [record.title, record.category, record.memo, record.cardName].join(' ').includes(term))) : cardRows;
+  const detail = [requestedCard?.label, terms.length ? terms.join('·') : '카드 상세 지출'].filter(Boolean).join(' ');
   if (!rows.length) return explicit ? answer(`${period.label} 카드 상세 내역에 ${detail} 기록이 없습니다.`) : null;
   const total = rows.reduce((sum, record) => sum + record.amount, 0);
   const byCard = Object.values(rows.reduce((all, record) => {
