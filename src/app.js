@@ -270,6 +270,10 @@ function render() {
   if (state.status !== 'ready') { authScreen(); return; }
   document.querySelector('.notice-right').textContent = state.offline ? '오프라인 캐시' : 'Firebase 실시간 동기화';
   root.innerHTML = { home, ledger, cards: cardDetails, side }[state.page]();
+  if (state.page === 'side' && hasDelivery()) {
+    const totalIncome = state.earnings.reduce((sum, record) => sum + record.grossIncome, 0);
+    root.querySelector('.side-hero')?.insertAdjacentHTML('beforebegin', `<section class="card side-total-income"><div><span class="tag blue">전체 등록 기록</span><h3>누적 등록 부업 수입</h3><p>등록한 모든 부업 수익의 합계입니다.</p></div><div><b class="mono">${money(totalIncome)}</b><span>${state.earnings.length}건</span></div></section>`);
+  }
   applyBranding();
   root.querySelectorAll('.business-mini .micro small, .side-metrics > div:first-child .micro:last-child').forEach(element => element.remove());
   const filter = root.querySelector('[data-filter]');
