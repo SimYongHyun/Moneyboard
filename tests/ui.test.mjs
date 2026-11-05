@@ -37,7 +37,9 @@ data.set('households/family/transactions', [
  {id:'income-s', person:'s',type:'income',title:'테스트 수입',date:'2026-11-01',amount:8000,paid:true},
  {id:'cost-s', person:'s',type:'expense',title:'테스트 교통비',date:'2026-11-02',amount:2000,paid:false,paymentMethod:'현금'}
 ]);
-data.set('households/family/recurringRules',[]);
+data.set('households/family/recurringRules',[
+ {id:'repeat-y',person:'y',type:'expense',title:'테스트 반복 지출',amount:1500,category:'식비',paymentMethod:'자동이체',account:'',memo:'',startMonth:'2026-11',endMonth:'',day:3,installments:0}
+]);
 data.set('households/family/cardDetails',[]);
 data.set('users/test-y/deliveryEarnings',[]);
 data.set('users/test-y/deliveryExpenses',[]);
@@ -56,7 +58,7 @@ function mutate(ref,value,remove=false){const bits=ref.path.split('/'), id=bits.
 export async function setDoc(ref,value){mutate(ref,value)}
 export async function updateDoc(ref,value){mutate(ref,value)}
 export async function deleteDoc(ref){mutate(ref,null,true)}
-export function writeBatch(){const work=[];return {set(ref,value){work.push([ref,value])},async commit(){for(const [ref,value] of work)mutate(ref,value)}}}
+export function writeBatch(){const work=[];return {set(ref,value){work.push([ref,value])},update(ref,value){work.push([ref,value])},async commit(){for(const [ref,value] of work)mutate(ref,value)}}}
 export function serverTimestamp(){return new Date()}
 `;
 
@@ -119,10 +121,10 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
         const outgoing = [];
         page.on('request', request => outgoing.push(request.url()));
         await page.getByRole('button', { name: '이번 달 지출' }).click();
-        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /6,500원/);
         await page.getByRole('button', { name: '부부 가계부' }).first().click();
         assert.equal(await panel.isVisible(), true);
-        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /6,500원/);
         const input = page.getByPlaceholder('궁금한 내용을 입력해 주세요.');
         await input.fill('쿠팡 수익');
         await input.press('Shift+Enter');
@@ -140,7 +142,7 @@ test('챗봇 플로팅 창, 추천 질문, 키보드 입력, 화면 전환 및 �
         await page.locator('.mb-chat-close').click();
         assert.equal(await panel.isVisible(), false);
         await page.getByRole('button', { name: '용비서 열기' }).click();
-        assert.match(await page.locator('.mb-chat-messages').innerText(), /5,000원/);
+        assert.match(await page.locator('.mb-chat-messages').innerText(), /6,500원/);
       }
       if (width === 390) {
         await page.setViewportSize({ width: 390, height: 500 });
@@ -209,14 +211,23 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 수입' }).first().innerText(), /수입/);
     assert.match(await page.locator('.ledger-table tr').filter({ hasText: '테스트 식비' }).first().innerText(), /지출/);
     await page.getByLabel('거래 분류 필터').selectOption('expense');
-    assert.equal(await page.locator('.ledger-panel tbody tr').count(), 2);
+    assert.equal(await page.locator('.ledger-panel tbody tr').count(), 3);
     assert.equal(await page.locator('.ledger-panel').first().innerText().then(text => text.includes('테스트 수입')), false);
     await page.getByLabel('거래 분류 필터').selectOption('all');
     const yRows = page.locator('.ledger-panel').first().locator('tbody tr[data-drag-id]');
-    assert.equal(await yRows.count(), 2);
+    assert.equal(await yRows.count(), 3);
     await yRows.filter({ hasText: '테스트 수입' }).dragTo(yRows.filter({ hasText: '테스트 식비' }));
     await page.getByText('장부 순서를 변경했습니다.').waitFor();
-    assert.match(await page.locator('.ledger-panel').first().locator('tbody tr').first().innerText(), /테스트 수입/);
+    let order = await yRows.allTextContents();
+    assert.ok(order.findIndex(text => text.includes('테스트 수입')) < order.findIndex(text => text.includes('테스트 식비')));
+    await yRows.filter({ hasText: '테스트 수입' }).dragTo(yRows.filter({ hasText: '테스트 반복 지출' }));
+    await page.getByText('장부 순서를 변경했습니다.').waitFor();
+    order = await yRows.allTextContents();
+    assert.match(order[0], /테스트 수입/);
+    await yRows.filter({ hasText: '테스트 반복 지출' }).dragTo(yRows.filter({ hasText: '테스트 식비' }));
+    await page.getByText('장부 순서를 변경했습니다.').waitFor();
+    order = await yRows.allTextContents();
+    assert.ok(order.findIndex(text => text.includes('테스트 반복 지출')) > order.findIndex(text => text.includes('테스트 식비')));
     assert.equal(await page.locator('.ledger-panel .overflow-x').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth)), true);
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: '이전월 복사' }).click();
@@ -321,13 +332,13 @@ test('개인 설정, 반복 납부, JSON 백업과 중복 가져오기', async (
     await page.locator('#ledgerForm [name=startMonth]').fill('2026-11');
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.locator('details.card summary').click();
-    await page.getByText('용현', { exact: true }).waitFor();
+    await page.getByText('용현', { exact: true }).first().waitFor();
     await page.locator('.sidebar [data-audit]').click();
     await page.getByRole('heading', { name: '수정 이력' }).waitFor();
     await page.getByText('반복 거래 등록').waitFor();
     await page.getByRole('button', { name: '닫기' }).click();
     const recurringRows = page.locator('.ledger-panel').first().locator('tbody tr[data-drag-id^="virtual:"]');
-    assert.equal(await recurringRows.count(), 1);
+    assert.equal(await recurringRows.count(), 2);
     assert.equal(await recurringRows.first().getAttribute('draggable'), 'true');
     const downloadPromise = page.waitForEvent('download');
     await page.locator('[data-backup="json"]').click();

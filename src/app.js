@@ -53,7 +53,9 @@ function applyBranding() {
   root.querySelectorAll('.ledger-columns .ledger-table tbody tr').forEach(row => {
     const edit = row.querySelector('[data-ledger-edit]'), id = edit?.dataset.ledgerEdit;
     if (id) {
-      row.draggable = true; row.dataset.dragId = id; row.title = id.startsWith('virtual:') ? '반복 예정 항목끼리 끌어 놓아 순서를 변경하세요' : '끌어 놓아 순서를 변경하세요';
+      const header = row.closest('table')?.querySelector('thead tr');
+      if (header && !header.querySelector('.drag-control')) header.insertAdjacentHTML('afterbegin', '<th class="drag-control" aria-label="순서"></th>');
+      row.draggable = true; row.dataset.dragId = id; row.title = '일반·반복 항목 모두 끌어 놓아 순서를 변경하세요';
       if (!row.querySelector('.drag-control')) row.insertAdjacentHTML('afterbegin', `<td class="drag-control"><span class="drag-handle" draggable="true" title="끌어 놓아 순서 변경">⠿</span><button type="button" data-move-up="${escapeHtml(id)}" aria-label="위로 이동">↑</button><button type="button" data-move-down="${escapeHtml(id)}" aria-label="아래로 이동">↓</button></td>`);
     }
   });
@@ -526,32 +528,21 @@ async function togglePaid(id) {
 }
 async function reorderLedger(sourceId, targetId) {
   if (!sourceId || sourceId === targetId) return;
-  if (sourceId.startsWith('virtual:') || targetId.startsWith('virtual:')) {
-    if (sourceId.startsWith('virtual:') && targetId.startsWith('virtual:')) await reorderRecurring(sourceId, targetId);
-    return;
-  }
-  const source = state.transactions.find(record => record.id === sourceId), target = state.transactions.find(record => record.id === targetId);
-  if (!source || !target || source.person !== target.person || monthOf(source.date) !== selectedMonth() || monthOf(target.date) !== selectedMonth()) return;
-  const rows = state.transactions.filter(record => record.person === source.person && monthOf(record.date) === selectedMonth() && (state.filter === 'all' || record.type === state.filter)).sort(ledgerOrder);
+  const visible = allTransactions(selectedMonth());
+  const source = visible.find(record => record.id === sourceId), target = visible.find(record => record.id === targetId);
+  if (!source || !target || source.person !== target.person) return;
+  const rows = visible.filter(record => record.person === source.person && (state.filter === 'all' || record.type === state.filter)).sort(ledgerOrder);
   const from = rows.findIndex(record => record.id === sourceId), to = rows.findIndex(record => record.id === targetId);
   if (from < 0 || to < 0) return;
   const [moved] = rows.splice(from, 1); rows.splice(to, 0, moved);
-  await Promise.all(rows.map((record, index) => updateDoc(doc(db, 'households', state.access.householdId, 'transactions', record.id), { sortOrder: (index + 1) * 10, updatedAt: serverTimestamp() })));
-  await writeAudit('순서 변경', '가계부 기록', `${source.person === 'y' ? '용현' : '선영'} · ${source.title}`);
+  const batch = writeBatch(db);
+  rows.forEach((record, index) => {
+    const path = record.virtual ? ['households', state.access.householdId, 'recurringRules', record.id.split(':')[1]] : ['households', state.access.householdId, 'transactions', record.id];
+    batch.update(doc(db, ...path), { sortOrder: (index + 1) * 10, updatedAt: serverTimestamp() });
+  });
+  await batch.commit();
+  await writeAudit('순서 변경', source.virtual ? '반복 거래' : '가계부 기록', `${source.person === 'y' ? '용현' : '선영'} · ${source.title}`);
   notify('장부 순서를 변경했습니다.');
-}
-async function reorderRecurring(sourceId, targetId) {
-  const sourceRuleId = sourceId.split(':')[1], targetRuleId = targetId.split(':')[1];
-  const source = state.rules.find(rule => rule.id === sourceRuleId), target = state.rules.find(rule => rule.id === targetRuleId);
-  if (!source || !target || source.person !== target.person) return;
-  const visible = allTransactions(selectedMonth()).filter(record => record.virtual && record.person === source.person && (state.filter === 'all' || record.type === state.filter)).sort(ledgerOrder);
-  const rules = visible.map(record => state.rules.find(rule => rule.id === record.id.split(':')[1])).filter(Boolean);
-  const from = rules.findIndex(rule => rule.id === sourceRuleId), to = rules.findIndex(rule => rule.id === targetRuleId);
-  if (from < 0 || to < 0) return;
-  const [moved] = rules.splice(from, 1); rules.splice(to, 0, moved);
-  await Promise.all(rules.map((rule, index) => updateDoc(doc(db, 'households', state.access.householdId, 'recurringRules', rule.id), { sortOrder: (index + 1) * 10, updatedAt: serverTimestamp() })));
-  await writeAudit('순서 변경', '반복 거래', `${source.person === 'y' ? '용현' : '선영'} · ${source.title}`);
-  notify('반복 예정 순서를 변경했습니다.');
 }
 let draggedLedgerId = '';
 document.addEventListener('dragstart', event => {
