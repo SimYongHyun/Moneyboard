@@ -7,6 +7,26 @@ export function validDate(value) {
   const actual = new Date(y, m - 1, d);
   return actual.getFullYear() === y && actual.getMonth() + 1 === m && actual.getDate() === d;
 }
+const localDate = iso => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
+export function expectedIncomeDate(platform, workDate) {
+  if (!validDate(workDate)) return '';
+  const date = localDate(workDate);
+  if (platform === '쿠팡이츠') {
+    const untilTuesday = (2 - date.getDay() + 7) % 7;
+    return isoDate(addDays(date, untilTuesday + 3));
+  }
+  if (platform === '배민커넥트') {
+    let cursor = date, businessDays = 0;
+    while (businessDays < 3) {
+      cursor = addDays(cursor, 1);
+      if (cursor.getDay() !== 0 && cursor.getDay() !== 6) businessDays += 1;
+    }
+    return isoDate(cursor);
+  }
+  return '';
+}
 export function integer(value, label = '금액') {
   const raw = String(value ?? '').trim();
   const display = raw.endsWith('원') ? raw.slice(0, -1).trim() : raw;

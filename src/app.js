@@ -2,7 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebas
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDoc, onSnapshot, query, limit, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
 import { firebaseConfig } from '../firebase-config.js';
-import { won, monthKey, monthOf, validDate, integer, validateDelivery, deliveryTotals, recovery, householdTotals, validateTransaction, recurringOccurrences, csvCell } from './model.js';
+import { won, monthKey, monthOf, validDate, integer, validateDelivery, deliveryTotals, recovery, householdTotals, validateTransaction, recurringOccurrences, expectedIncomeDate, csvCell } from './model.js';
 
 const root = document.getElementById('app');
 const dialog = document.getElementById('recordDialog');
@@ -228,17 +228,22 @@ function recordList() {
 }
 function deliveryCalendar() {
   const calendarMonth = displayedCalendarMonth(), [year, month] = calendarMonth.split('-').map(Number);
-  const daily = new Map();
+  const daily = new Map(), deposits = new Map();
   for (const row of state.earnings.filter(r => monthOf(r.workDate) === calendarMonth)) daily.set(row.workDate, (daily.get(row.workDate) || 0) + row.grossIncome - row.settlementDeduction);
   for (const row of state.expenses.filter(r => monthOf(r.workDate) === calendarMonth)) daily.set(row.workDate, (daily.get(row.workDate) || 0) - row.amount);
+  for (const row of state.earnings) {
+    const payoutDate = expectedIncomeDate(row.platform, row.workDate);
+    if (monthOf(payoutDate) === calendarMonth) deposits.set(payoutDate, (deposits.get(payoutDate) || 0) + row.grossIncome - row.settlementDeduction);
+  }
   const offset = new Date(year, month - 1, 1).getDay(), last = new Date(year, month, 0).getDate();
   const blanks = Array.from({ length: offset }, () => '<div class="delivery-calendar-empty" aria-hidden="true"></div>').join('');
   const days = Array.from({ length: last }, (_, index) => {
-    const day = index + 1, date = `${calendarMonth}-${String(day).padStart(2, '0')}`, total = daily.get(date);
+    const day = index + 1, date = `${calendarMonth}-${String(day).padStart(2, '0')}`, total = daily.get(date), deposit = deposits.get(date);
     const amount = total === undefined ? '' : `<span class="calendar-amount">${total >= 0 ? '+' : '−'}${money(Math.abs(total))}</span>`;
-    return `<div class="delivery-calendar-day ${date === today ? 'today' : ''}" data-calendar-date="${date}"><span class="calendar-date">${day}</span>${amount}</div>`;
+    const expected = deposit === undefined ? '' : `<span class="calendar-deposit">입금 예정 ${money(deposit)}</span>`;
+    return `<div class="delivery-calendar-day ${date === today ? 'today' : ''}" data-calendar-date="${date}"><span class="calendar-date">${day}</span>${amount}${expected}</div>`;
   }).join('');
-  return `<section class="card delivery-calendar"><div class="section-heading"><div><h3 data-calendar-title>${year}년 ${month}월 부업 달력</h3><div class="sectionsub">기록을 저장하면 해당 날짜에 일별 순반영 금액이 표시됩니다.</div></div><div class="calendar-controls"><button class="calendar-nav" data-calendar-move="-1" aria-label="이전 달">‹</button><span class="tag blue">파란 띠 = 기록 있음</span><button class="calendar-nav" data-calendar-move="1" aria-label="다음 달">›</button></div></div><div class="delivery-calendar-week" aria-hidden="true">${['일', '월', '화', '수', '목', '금', '토'].map(day => `<span>${day}</span>`).join('')}</div><div class="delivery-calendar-grid">${blanks}${days}</div></section>`;
+  return `<section class="card delivery-calendar"><div class="section-heading"><div><h3 data-calendar-title>${year}년 ${month}월 부업 달력</h3><div class="sectionsub">파란 띠는 일별 순반영액, 초록 띠는 입금 예정액입니다. 배민은 주말 제외 3영업일 기준입니다.</div></div><div class="calendar-controls"><button class="calendar-nav" data-calendar-move="-1" aria-label="이전 달">‹</button><span class="tag blue">입금 예정 표시</span><button class="calendar-nav" data-calendar-move="1" aria-label="다음 달">›</button></div></div><div class="delivery-calendar-week" aria-hidden="true">${['일', '월', '화', '수', '목', '금', '토'].map(day => `<span>${day}</span>`).join('')}</div><div class="delivery-calendar-grid">${blanks}${days}</div></section>`;
 }
 function insight(monthly, result) {
   const perDrop = monthly.deliveries ? money(monthly.payout / monthly.deliveries) : '—';

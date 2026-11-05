@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validDate, integer, validateDelivery, deliveryTotals, recovery, householdTotals, recurringOccurrences } from '../src/model.js';
+import { validDate, integer, validateDelivery, deliveryTotals, recovery, householdTotals, recurringOccurrences, expectedIncomeDate } from '../src/model.js';
 
 const earning = (workDate, platform, grossIncome, settlementDeduction = 0) => ({ kind: 'income', workDate, platform, grossIncome, settlementDeduction, deliveryCount: 1, workHours: 1, distanceKm: 5, memo: '' });
 const cost = (workDate, amount) => ({ kind: 'expense', workDate, amount, category: '주유비', memo: '' });
@@ -11,6 +11,12 @@ test('부업 날짜와 원화 금액 검증', () => {
   assert.throws(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', -1)));
   assert.throws(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', 1.5)));
   assert.doesNotThrow(() => validateDelivery(earning('2026-10-31', '쿠팡이츠', 10, 11)));
+});
+test('플랫폼별 입금 예정일은 쿠팡 주간 정산과 배민 3영업일을 따른다', () => {
+  assert.equal(expectedIncomeDate('쿠팡이츠', '2026-11-04'), '2026-11-13');
+  assert.equal(expectedIncomeDate('쿠팡이츠', '2026-11-10'), '2026-11-13');
+  assert.equal(expectedIncomeDate('배민커넥트', '2026-11-02'), '2026-11-05');
+  assert.equal(expectedIncomeDate('배민커넥트', '2026-11-06'), '2026-11-11');
 });
 
 test('쉼표와 원 단위가 포함된 금액도 정수로 저장된다', () => {

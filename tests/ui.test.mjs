@@ -261,6 +261,7 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     await page.getByText('이번 달 실정산액').waitFor();
     assert.match(await page.locator('.side-metrics').innerText(), /1,000원/);
     assert.match(await page.locator('.side-total-income').innerText(), /누적 등록 부업 수입[\s\S]*1,000원/);
+    assert.equal(await page.locator('[data-calendar-date="2026-11-06"] .calendar-deposit').innerText(), '입금 예정 1,000원');
     await page.getByRole('button', { name: /주유·정비·보험료 등/ }).click();
     await page.locator('#deliveryForm [name=workDate]').fill('2026-11-02');
     await page.locator('#deliveryForm [name=amount]').fill('100');
