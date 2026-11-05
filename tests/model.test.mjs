@@ -17,6 +17,7 @@ test('플랫폼별 입금 예정일은 쿠팡 주간 정산과 배민 3영업일
   assert.equal(expectedIncomeDate('쿠팡이츠', '2026-11-10'), '2026-11-13');
   assert.equal(expectedIncomeDate('배민커넥트', '2026-11-02'), '2026-11-05');
   assert.equal(expectedIncomeDate('배민커넥트', '2026-11-06'), '2026-11-11');
+  assert.equal(expectedIncomeDate('배민커넥트', '2026-02-13'), '2026-02-23');
 });
 
 test('쉼표와 원 단위가 포함된 금액도 정수로 저장된다', () => {

@@ -10,6 +10,8 @@ export function validDate(value) {
 const localDate = iso => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
 const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const addDays = (date, days) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
+const koreanPublicHolidays2026 = new Set(['2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-03-02', '2026-05-05', '2026-05-25', '2026-06-03', '2026-07-17', '2026-08-17', '2026-09-24', '2026-09-25', '2026-09-26', '2026-10-05', '2026-10-09', '2026-12-25']);
+const isBusinessDay = date => date.getDay() !== 0 && date.getDay() !== 6 && !koreanPublicHolidays2026.has(isoDate(date));
 export function expectedIncomeDate(platform, workDate) {
   if (!validDate(workDate)) return '';
   const date = localDate(workDate);
@@ -21,7 +23,7 @@ export function expectedIncomeDate(platform, workDate) {
     let cursor = date, businessDays = 0;
     while (businessDays < 3) {
       cursor = addDays(cursor, 1);
-      if (cursor.getDay() !== 0 && cursor.getDay() !== 6) businessDays += 1;
+      if (isBusinessDay(cursor)) businessDays += 1;
     }
     return isoDate(cursor);
   }
