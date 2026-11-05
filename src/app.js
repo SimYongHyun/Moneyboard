@@ -233,14 +233,18 @@ function deliveryCalendar() {
   for (const row of state.expenses.filter(r => monthOf(r.workDate) === calendarMonth)) daily.set(row.workDate, (daily.get(row.workDate) || 0) - row.amount);
   for (const row of state.earnings) {
     const payoutDate = expectedIncomeDate(row.platform, row.workDate);
-    if (monthOf(payoutDate) === calendarMonth) deposits.set(payoutDate, (deposits.get(payoutDate) || 0) + row.grossIncome - row.settlementDeduction);
+    if (monthOf(payoutDate) === calendarMonth) {
+      const platform = row.platform === '쿠팡이츠' ? '쿠팡' : '배민', grouped = deposits.get(payoutDate) || {};
+      grouped[platform] = (grouped[platform] || 0) + row.grossIncome - row.settlementDeduction;
+      deposits.set(payoutDate, grouped);
+    }
   }
   const offset = new Date(year, month - 1, 1).getDay(), last = new Date(year, month, 0).getDate();
   const blanks = Array.from({ length: offset }, () => '<div class="delivery-calendar-empty" aria-hidden="true"></div>').join('');
   const days = Array.from({ length: last }, (_, index) => {
     const day = index + 1, date = `${calendarMonth}-${String(day).padStart(2, '0')}`, total = daily.get(date), deposit = deposits.get(date);
     const amount = total === undefined ? '' : `<span class="calendar-amount">${total >= 0 ? '+' : '−'}${money(Math.abs(total))}</span>`;
-    const expected = deposit === undefined ? '' : `<span class="calendar-deposit">입금 예정 ${money(deposit)}</span>`;
+    const expected = deposit === undefined ? '' : Object.entries(deposit).map(([platform, amount]) => `<span class="calendar-deposit">${platform} 입금 예정 ${money(amount)}</span>`).join('');
     return `<div class="delivery-calendar-day ${date === today ? 'today' : ''}" data-calendar-date="${date}"><span class="calendar-date">${day}</span>${amount}${expected}</div>`;
   }).join('');
   return `<section class="card delivery-calendar"><div class="section-heading"><div><h3 data-calendar-title>${year}년 ${month}월 부업 달력</h3><div class="sectionsub">파란 띠는 일별 순반영액, 초록 띠는 입금 예정액입니다. 배민은 주말·2026년 법정공휴일 제외 3영업일 기준입니다.</div></div><div class="calendar-controls"><button class="calendar-nav" data-calendar-move="-1" aria-label="이전 달">‹</button><span class="tag blue">입금 예정 표시</span><button class="calendar-nav" data-calendar-move="1" aria-label="다음 달">›</button></div></div><div class="delivery-calendar-week" aria-hidden="true">${['일', '월', '화', '수', '목', '금', '토'].map(day => `<span>${day}</span>`).join('')}</div><div class="delivery-calendar-grid">${blanks}${days}</div></section>`;
