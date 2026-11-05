@@ -183,11 +183,20 @@ const cardCategories = ['식비', '장보기', '주거·관리비', '통신·구
 const personName = key => key === 's' ? '선영' : key === 'common' ? '공용' : '용현';
 const cardLabel = card => card.person === 'common' ? `${card.name} (공용)` : `${card.name} · ${personName(card.person)}`;
 const activeCard = () => cardCatalog.find(card => card.key === state.cardKey) || cardCatalog[0];
-const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && monthOf(record.date) === selectedMonth()).sort((a, b) => b.date.localeCompare(a.date)).map(record => ({ ...record, memo: [record.memo, installmentLabel(record)].filter(Boolean).join(' · ') }));
+const installmentElapsedMonths = record => {
+  const [startYear, startMonth] = record.date.slice(0, 7).split('-').map(Number);
+  return (state.year - startYear) * 12 + state.month - startMonth;
+};
+const installmentActive = record => record.paymentType === 'installment' && record.installmentMonths > 0 && installmentElapsedMonths(record) >= 0 && installmentElapsedMonths(record) < record.installmentMonths;
+function cardMonthlyAmount(record) {
+  if (!installmentActive(record)) return record.amount;
+  const elapsed = installmentElapsedMonths(record), regular = Math.round(record.amount / record.installmentMonths);
+  return elapsed === record.installmentMonths - 1 ? record.amount - regular * (record.installmentMonths - 1) : regular;
+}
+const cardRows = card => state.cardDetails.filter(record => record.cardKey === card.key && (monthOf(record.date) === selectedMonth() || installmentActive(record))).sort((a, b) => b.date.localeCompare(a.date)).map(record => ({ ...record, amount: cardMonthlyAmount(record), memo: [record.memo, record.paymentType === 'installment' ? `${installmentLabel(record)} · 총 ${money(record.amount)}` : ''].filter(Boolean).join(' · ') }));
 function installmentLabel(record) {
   if (record.paymentType !== 'installment' || !record.installmentMonths) return '일시불';
-  const [startYear, startMonth] = record.date.slice(0, 7).split('-').map(Number);
-  const elapsed = Math.max(0, (state.year - startYear) * 12 + state.month - startMonth);
+  const elapsed = Math.max(0, installmentElapsedMonths(record));
   const remaining = Math.max(0, record.installmentMonths - elapsed - 1);
   return remaining ? `할부 ${record.installmentMonths}개월 · 남은 ${remaining}개월` : `할부 ${record.installmentMonths}개월 · 완납`;
 }

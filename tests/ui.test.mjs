@@ -171,9 +171,10 @@ test('카드 상세 내역은 가계부와 별도로 등록하고 카테고리�
     await page.locator('#cardDetailForm [name=amount]').fill('22300');
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('테스트 휴대폰 케이스').waitFor();
-    assert.match(await page.locator('.card-category-chart').innerText(), /쇼핑[\s\S]*22,300원/);
+    assert.match(await page.locator('.card-category-chart').innerText(), /쇼핑[\s\S]*3,717원/);
     assert.match(await page.locator('.card-detail-grid').innerText(), /할부 6개월 · 남은 5개월/);
-    assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*22,300원/);
+    assert.match(await page.locator('.card-detail-grid').innerText(), /총 22,300원/);
+    assert.match(await page.locator('.card-detail-summary').innerText(), /등록 지출 합계\s*3,717원/);
     await page.getByRole('button', { name: '부부 가계부' }).first().click();
     assert.equal(await page.getByText('테스트 휴대폰 케이스').count(), 0);
     assert.deepEqual(errors, []);
