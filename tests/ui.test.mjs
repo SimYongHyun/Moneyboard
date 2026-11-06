@@ -258,15 +258,11 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     assert.equal(await page.locator('#deliveryForm [name=grossIncome]').inputValue(), '1,000원');
     assert.equal(await page.getByText('정산 공제액 (원)', { exact: true }).count(), 0);
     await page.getByRole('button', { name: '기록 저장' }).click();
-    await page.getByText('이번 달 실정산액').waitFor();
+    await page.getByText('이번 달 등록 수익').waitFor();
     assert.match(await page.locator('.side-metrics').innerText(), /전체 총합 부업 수익[\s\S]*1,000원/);
     assert.equal(await page.locator('[data-calendar-date="2026-11-06"] .calendar-deposit').innerText(), '쿠팡 입금 예정 1,000원');
-    await page.getByRole('button', { name: /주유·정비·보험료 등/ }).click();
-    await page.locator('#deliveryForm [name=workDate]').fill('2026-11-02');
-    await page.locator('#deliveryForm [name=amount]').fill('100');
-    await page.getByRole('button', { name: '기록 저장' }).click();
-    assert.match(await page.locator('.side-metrics').innerText(), /전체 총합 부업 수익[\s\S]*1,000원/);
-    assert.equal(await page.locator('[data-calendar-date="2026-11-02"] .calendar-amount').innerText(), '+900원');
+    assert.equal(await page.getByRole('button', { name: /주유·정비·보험료 등/ }).count(), 0);
+    assert.equal(await page.locator('[data-calendar-date="2026-11-02"] .calendar-amount').innerText(), '+1,000원');
     assert.match(await page.locator('[data-calendar-title]').innerText(), /2026년 11월/);
     await page.getByRole('button', { name: '이전 달' }).click();
     assert.match(await page.locator('[data-calendar-title]').innerText(), /2026년 10월/);
@@ -281,7 +277,7 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     assert.match(await page.locator('.app-title .yearbar').innerText(), /10월/);
     assert.equal(await page.locator('[data-calendar-date="2026-10-31"] .calendar-amount').innerText(), '+1,000원');
     await page.locator('[data-pick-month="11"]').click();
-    assert.match(await page.locator('.side-metrics').innerText(), /이번 달 실정산액\s*0원/);
+    assert.match(await page.locator('.side-metrics').innerText(), /이번 달 등록 수익\s*0원/);
     await page.locator('[data-pick-month="10"]').click();
     page.once('dialog', dialog => dialog.accept());
     await page.locator('.record-table [data-delivery-delete^="income:"]').click();
