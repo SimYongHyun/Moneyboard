@@ -259,7 +259,7 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     assert.equal(await page.getByText('정산 공제액 (원)', { exact: true }).count(), 0);
     await page.getByRole('button', { name: '기록 저장' }).click();
     await page.getByText('이번 달 등록 수익').waitFor();
-    assert.match(await page.locator('.side-metrics').innerText(), /전체 총합 부업 수익[\s\S]*1,000원/);
+    assert.match(await page.locator('.side-metrics').innerText(), /누적 총합 부업 수익[\s\S]*1,000원/);
     assert.equal(await page.locator('[data-calendar-date="2026-11-06"] .calendar-deposit').innerText(), '쿠팡 입금 예정 1,000원');
     assert.equal(await page.getByRole('button', { name: /주유·정비·보험료 등/ }).count(), 0);
     assert.equal(await page.locator('[data-calendar-date="2026-11-02"] .calendar-amount').innerText(), '+1,000원');
