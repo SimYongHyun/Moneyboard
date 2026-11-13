@@ -301,6 +301,7 @@ test('모바일 장부와 부업 카드가 세로로 쌓이고 입력창을 사�
     await page.locator('.bottom-nav [data-page="ledger"]').click();
     const panels = await page.locator('.ledger-panel').evaluateAll(elements => elements.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y })));
     assert.equal(panels.length, 2); assert.equal(panels[0].x, panels[1].x); assert.ok(panels[1].y > panels[0].y);
+    assert.ok(await page.locator('[data-ellipsis-tooltip="true"]').count() > 0);
     await page.screenshot({ path: 'tools/ui-ledger-390.png', fullPage: true });
     await page.locator('.bottom-nav [data-page="side"]').click();
     const cards = await page.locator('.side-analytics > .card').evaluateAll(elements => elements.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y })));

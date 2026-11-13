@@ -59,6 +59,12 @@ function applyBranding() {
       if (!row.querySelector('.drag-control')) row.insertAdjacentHTML('afterbegin', `<td class="drag-control"><span class="drag-handle" draggable="true" title="끌어 놓아 순서 변경">⠿</span><button type="button" data-move-up="${escapeHtml(id)}" aria-label="위로 이동">↑</button><button type="button" data-move-down="${escapeHtml(id)}" aria-label="아래로 이동">↓</button></td>`);
     }
   });
+  root.querySelectorAll('*').forEach(element => {
+    if (element.hasAttribute('title') || getComputedStyle(element).textOverflow !== 'ellipsis') return;
+    const clipped = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+    const text = element.textContent.replace(/\s+/g, ' ').trim();
+    if (clipped && text) { element.title = text; element.dataset.ellipsisTooltip = 'true'; }
+  });
 }
 function authScreen() {
   chatWidget?.destroy(); chatWidget = null;
