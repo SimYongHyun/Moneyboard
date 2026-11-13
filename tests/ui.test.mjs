@@ -229,6 +229,9 @@ test('가계부 입력과 부업 정산 화면이 사용자 조작으로 갱신�
     order = await yRows.allTextContents();
     assert.ok(order.findIndex(text => text.includes('테스트 반복 지출')) > order.findIndex(text => text.includes('테스트 식비')));
     assert.equal(await page.locator('.ledger-panel .overflow-x').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth)), true);
+    const controls = page.locator('.ledger-panel').first().locator('tbody tr').first().locator('button[data-ledger-delete]');
+    assert.equal(await controls.isVisible(), true);
+    assert.ok((await controls.boundingBox()).width > 20);
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: '이전월 복사' }).click();
     await page.getByText('지난달 식비').waitFor();
